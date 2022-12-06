@@ -26,6 +26,11 @@ SocketPair createSocketPair(Transport t)
         p = createTcpPair();
         std::cout << "TCP socket pair created\n";
     }
+    else if(t == Transport::TCP_LOCAL)
+    {
+        p = createStreamLocalPair();
+        std::cout << "TCP_LOCAL socket pair created\n";
+    }
     else if(t == Transport::UDP)
     {
         p = createUdpPair();
@@ -43,7 +48,7 @@ SocketPair createSocketPair(Transport t)
 
 void doReceive(int fd)
 {
-    char buf[MAXLEN];
+    char buf[MAXLEN] = {};
     iovec io;
     io.iov_base = buf;
     io.iov_len = MAXLEN - 1;
@@ -89,24 +94,24 @@ void doSend(const SocketPair& p, const char *buf)
     std::cout << "Client: sending " << buf << std::endl;
 
     int n = 0;
-    if(p.transport == Transport::TCP)
+    if(p.transport == Transport::TCP || p.transport == Transport::TCP_LOCAL)
     {
         n = send(p.clientFd, buf, strlen(buf), 0);
     }
     else if(p.transport == Transport::UDP)
     {
-        n = sendto(p.clientFd, &buf, strlen(buf), 0, (sockaddr*) &p.serveraddr_in, sizeof(p.serveraddr_in));
+        n = sendto(p.clientFd, buf, strlen(buf), 0, (sockaddr*) &p.serveraddr_in, sizeof(p.serveraddr_in));
     }
     else if(p.transport == Transport::UDP_LOCAL)
     {
-        n = sendto(p.clientFd, &buf, strlen(buf), 0, (sockaddr*) &p.serveraddr_un, sizeof(p.serveraddr_un));
+        n = sendto(p.clientFd, buf, strlen(buf), 0, (sockaddr*) &p.serveraddr_un, sizeof(p.serveraddr_un));
     }
 
     if(n == -1)
     {
         raiseError("Failed to send");
     }
-    std::cout << "Client: sent " << n << " bytes\n\n\n";
+    std::cout << "Client: sent " << n << " bytes\n\n";
 }
 
 

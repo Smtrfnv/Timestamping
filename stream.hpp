@@ -7,4 +7,6 @@ namespace ts
 
 SocketPair createTcpPair();
 
+SocketPair createStreamLocalPair();
+
 }

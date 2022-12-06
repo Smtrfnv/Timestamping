@@ -7,4 +7,6 @@ namespace ts
 
 SocketPair createUdpPair();
 
+SocketPair createDgramLocalPair();
+
 }

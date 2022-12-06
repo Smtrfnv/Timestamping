@@ -31,8 +31,13 @@ SocketPair createSocketPair(Transport t)
         p = createUdpPair();
         std::cout << "UDP socket pair created\n";
     }
+    else if(t == Transport::UDP_LOCAL)
+    {
+        p = createDgramLocalPair();
+        std::cout << "UDP_LOCAL socket pair created\n";
+    }
     else
-        raiseError("Unsupported transport type");
+        raiseError("createSocketPair:: unsupported transport type");
     return p;
 }
 
@@ -79,18 +84,22 @@ void doReceive(int fd)
     std::cout << "\n";
 }
 
-void doSend(Transport t, int fd, const char *buf, const sockaddr_in& addr)
+void doSend(const SocketPair& p, const char *buf)
 {
     std::cout << "Client: sending " << buf << std::endl;
 
     int n = 0;
-    if(t == Transport::TCP)
+    if(p.transport == Transport::TCP)
     {
-        n = send(fd, buf, strlen(buf), 0);
+        n = send(p.clientFd, buf, strlen(buf), 0);
     }
-    else
+    else if(p.transport == Transport::UDP)
     {
-        n = sendto(fd, &buf, strlen(buf), 0, (sockaddr*) &addr, sizeof(addr));
+        n = sendto(p.clientFd, &buf, strlen(buf), 0, (sockaddr*) &p.serveraddr_in, sizeof(p.serveraddr_in));
+    }
+    else if(p.transport == Transport::UDP_LOCAL)
+    {
+        n = sendto(p.clientFd, &buf, strlen(buf), 0, (sockaddr*) &p.serveraddr_un, sizeof(p.serveraddr_un));
     }
 
     if(n == -1)
@@ -100,13 +109,42 @@ void doSend(Transport t, int fd, const char *buf, const sockaddr_in& addr)
     std::cout << "Client: sent " << n << " bytes\n\n\n";
 }
 
+
+Transport getTransportType(const char * str)
+{
+    if(strcmp("tcp", str) == 0)
+    {
+        return Transport::TCP;
+    }
+    if(strcmp("udp", str) == 0)
+    {
+        return Transport::UDP;
+    }
+    if(strcmp("tcp_local", str) == 0)
+    {
+        return Transport::TCP_LOCAL;
+    }
+    if(strcmp("udp_local", str) == 0)
+    {
+        return Transport::UDP_LOCAL;
+    }
+    raiseError("Unsupported transport type");
+    return Transport::TCP;
+}
+
 } //namespace ts
+
 
 int main(int argc, char* argv[])
 {
     using namespace ts;
 
-    const Transport transport = Transport::UDP;
+    if(argc != 2)
+    {
+        raiseError("Incorrect number of arguments, should be 1");
+    }
+
+    const Transport transport = getTransportType(argv[1]);
 
     const SocketPair p = createSocketPair(transport);
 
@@ -116,7 +154,7 @@ int main(int argc, char* argv[])
             char buf[MAXLEN];
             snprintf(buf, MAXLEN, "%d", i);
             
-            doSend(transport, p.clientFd, buf, p.serveraddr);
+            doSend(p, buf);
         }
         doReceive(p.serverFd);
 

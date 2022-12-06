@@ -12,6 +12,7 @@ namespace ts
 SocketPair createTcpPair()
 {
     SocketPair spair = {};
+    spair.transport = Transport::TCP;
 
     const int port = 2552;
     int listenfd = createSocket (AF_INET, SOCK_STREAM, IPPROTO_TCP);
@@ -27,7 +28,7 @@ SocketPair createTcpPair()
         raiseError("Server: failed to inet_pton");
     }
 
-    spair.serveraddr = servaddr;
+    spair.serveraddr_in = servaddr;
 
     res = bind(listenfd, (sockaddr *) &servaddr, sizeof(servaddr));
     if(res != 0)

@@ -23,19 +23,24 @@ int createSocket(int family, int type, int protocol)
     if(fd < 0)
         raiseError("socket creation error");
 
-
-    uint32_t val = 
-        SOF_TIMESTAMPING_TX_HARDWARE
-        | SOF_TIMESTAMPING_TX_SOFTWARE
-
-        | SOF_TIMESTAMPING_RX_SOFTWARE
-        | SOF_TIMESTAMPING_RX_HARDWARE
-
-        | SOF_TIMESTAMPING_SOFTWARE
-        | SOF_TIMESTAMPING_RAW_HARDWARE
-        ;
     
-    int res = setsockopt(fd, SOL_SOCKET, SO_TIMESTAMPING, &val, sizeof(val));
+    uint32_t val = 1;
+
+    if(family == AF_INET)
+    {
+        val =  
+            SOF_TIMESTAMPING_TX_HARDWARE
+            | SOF_TIMESTAMPING_TX_SOFTWARE
+
+            | SOF_TIMESTAMPING_RX_SOFTWARE
+            | SOF_TIMESTAMPING_RX_HARDWARE
+
+            | SOF_TIMESTAMPING_SOFTWARE
+            | SOF_TIMESTAMPING_RAW_HARDWARE
+            ;
+    }
+    
+    int res = setsockopt(fd, SOL_SOCKET, (family == AF_INET) ? SO_TIMESTAMPING : SO_TIMESTAMPNS, &val, sizeof(val));
 
     if(res != 0)
     {
@@ -68,9 +73,19 @@ void processCtrlMessage(cmsghdr &chdr)
                               << "\nts[2]" << ts.ts[2].tv_sec << " " << ts.ts[2].tv_nsec << std::endl;
                     break;
                 }
+                case(SO_TIMESTAMPNS):
+                {
+                    std::cout << "Got SO_TIMESTAMPNS\n";
+
+                    timespec ts = {};
+                    std::memcpy(&ts, CMSG_DATA(&chdr), sizeof(ts));
+                    std::cout << "ts: " << ts.tv_sec << " " << ts.tv_nsec << std::endl;
+
+                    break;
+                }
                 default:
                 {
-                    std::cout << "unsupported cmsg_type\n";
+                    std::cout << "unsupported cmsg_type = " << chdr.cmsg_type << std::endl;
                 }
             }
             break;

@@ -1,5 +1,7 @@
 #pragma once
 
+#include "Transport.hpp"
+#include "SocketPair.hpp"
 
 #include <sys/socket.h>
 #include <sys/un.h>
@@ -8,28 +10,12 @@
 namespace ts
 {
 
-enum class Transport
-{
-    TCP,
-    UDP,
-    UDP_LOCAL,
-    TCP_LOCAL
-};
-
-struct SocketPair
-{
-    Transport transport;
-    int clientFd;
-    int serverFd;
-    sockaddr_in serveraddr_in; // valid for TCP & UDP
-    sockaddr_un serveraddr_un; // valid only for UNIX sockets
-};
-
 void raiseError( const char* x);
 
-int createSocket(int family, int type, int protocol);
+SocketPair createSocketPair(Transport t);
+void closeSockPair(const SocketPair& p);
 
-void processCtrlMessage(cmsghdr &chdr);
+int createSocket(int family, int type, int protocol);
 
 }
 

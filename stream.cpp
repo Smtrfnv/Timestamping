@@ -27,22 +27,26 @@ SocketPair createTcpPair()
         raiseError("createTcpPair: failed to inet_pton");
     }
 
-    spair.serveraddr_in = servaddr;
+    spair.serveraddr = servaddr;
 
     res = bind(listenfd, (sockaddr *) &servaddr, sizeof(servaddr));
     if(res != 0)
     {
+        close(listenfd);
         raiseError("createTcpPair: failed to do bind");
     }
 
     res = listen(listenfd, 1);
     if(res != 0)
     {
+        close(listenfd);
         raiseError("createTcpPair: Failed to listen");
     }
 
     {
-        spair.clientFd = createSocket(AF_INET, SOCK_STREAM, IPPROTO_TCP);
+        int clientFd = createSocket(AF_INET, SOCK_STREAM, IPPROTO_TCP);
+        
+        spair.clientFd = std::make_shared<SocketWrapper>("Client_tcp", clientFd, Transport::TCP);
 
         sockaddr_in servaddr = {};
         servaddr.sin_family = AF_INET;
@@ -53,7 +57,7 @@ SocketPair createTcpPair()
             raiseError("createTcpPair: failed to inet_pton");
         }
         
-        res = connect(spair.clientFd, (sockaddr*) &servaddr, sizeof(servaddr));
+        res = connect(spair.clientFd->getFd(), (sockaddr*) &servaddr, sizeof(servaddr));
         if(res != 0)
         {
             raiseError("createTcpPair: failed to connect");
@@ -66,11 +70,12 @@ SocketPair createTcpPair()
     sockaddr_in cliaddr = {};
     socklen_t clilen = sizeof(clilen);
 
-    spair.serverFd = accept(listenfd, (sockaddr*) &cliaddr, &clilen);
-    if(spair.serverFd == -1)
+    int serverFd = accept(listenfd, (sockaddr*) &cliaddr, &clilen);
+    if(serverFd == -1)
     {
         raiseError("createTcpPair: failed to accept connection\n");
     }
+    spair.serverFd = std::make_shared<SocketWrapper>("Server_tcp", serverFd, Transport::TCP);
 
     std::cout << "createTcpPair: connection accepted\n";
     
@@ -93,7 +98,7 @@ SocketPair createStreamLocalPair()
     serveraddr.sun_family = AF_UNIX;
     strncpy(serveraddr.sun_path, sockPathServer, sizeof(serveraddr.sun_path));
 
-    spair.serveraddr_un = serveraddr;
+    spair.serveraddr = serveraddr;
 
     int listenFd = 0;
     {
@@ -104,22 +109,28 @@ SocketPair createStreamLocalPair()
         int res = bind(listenFd, (sockaddr*) &serveraddr, sizeof(serveraddr));
         if(res != 0)
         {
+            close(listenFd);
             raiseError("createStreamLocalPair: failed to bind");
         }
 
         res = listen(listenFd, 1);
         if(res != 0)
         {
+            close(listenFd);
             raiseError("createStreamLocalPair: Failed to listen");
         }
 
     }
 
     {
-        spair.clientFd = createSocket(AF_UNIX, SOCK_STREAM, 0);
-        int res = connect(spair.clientFd, (struct sockaddr *) &serveraddr, sizeof(serveraddr));
+        int clientFd = createSocket(AF_UNIX, SOCK_STREAM, 0);
+
+        spair.clientFd = std::make_shared<SocketWrapper>("Client_tcp_local", clientFd, Transport::TCP_LOCAL);
+
+        int res = connect(spair.clientFd->getFd(), (struct sockaddr *) &serveraddr, sizeof(serveraddr));
         if(res != 0)
         {
+            close(listenFd);
             raiseError("Client: failed to connect");
         }
     }
@@ -128,11 +139,12 @@ SocketPair createStreamLocalPair()
         sockaddr_un clientAddress = {};
         socklen_t clientAddrLen = sizeof(clientAddress);
 
-        spair.serverFd = accept(listenFd, (sockaddr*)&clientAddress, &clientAddrLen);
-        if(spair.serverFd == -1)
+        int serverFd = accept(listenFd, (sockaddr*)&clientAddress, &clientAddrLen);
+        if(serverFd == -1)
         {
             raiseError("createStreamLocalPair: failed to accept connection\n");
         }
+        spair.serverFd = std::make_shared<SocketWrapper>("Server_tcp_local", serverFd, Transport::TCP_LOCAL);
     }
 
     int res = close(listenFd);

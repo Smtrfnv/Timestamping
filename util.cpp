@@ -1,24 +1,57 @@
 #include "util.hpp"
 
+#include "stream.hpp"
+#include "dgram.hpp"
+#include "Logger.hpp"
+
 #include <iostream>
 #include <cstring>
 
 #include <sys/socket.h>
 #include <linux/net_tstamp.h>
-#include <linux/errqueue.h>
+#include <unistd.h>
 
 namespace ts
 {
 
 void raiseError( const char* x)
 {
-    std::cerr << x << std::endl;
+    std::cerr << x << "\n last error = " << strerror(errno) << std::endl;
     exit(1);
+}
+
+SocketPair createSocketPair(Transport t)
+{
+    SocketPair p;
+    if(t == Transport::TCP)
+    {
+        p = createTcpPair();
+        std::cout << "TCP socket pair created\n";
+    }
+    else if(t == Transport::TCP_LOCAL)
+    {
+        p = createStreamLocalPair();
+        std::cout << "TCP_LOCAL socket pair created\n";
+    }
+    else if(t == Transport::UDP)
+    {
+        p = createUdpPair();
+        std::cout << "UDP socket pair created\n";
+    }
+    else if(t == Transport::UDP_LOCAL)
+    {
+        p = createDgramLocalPair();
+        std::cout << "UDP_LOCAL socket pair created\n";
+    }
+    else
+        raiseError("createSocketPair:: unsupported transport type");
+    return p;
 }
 
 int createSocket(int family, int type, int protocol)
 {
-    std::cout << "creating socket\n";
+    TSLOG("creating socket");
+
     int fd = socket(family, type, protocol);
     if(fd < 0)
         raiseError("socket creation error");
@@ -29,14 +62,14 @@ int createSocket(int family, int type, int protocol)
     if(family == AF_INET)
     {
         val =  
-            SOF_TIMESTAMPING_TX_HARDWARE
-            | SOF_TIMESTAMPING_TX_SOFTWARE
+            // SOF_TIMESTAMPING_TX_HARDWARE
+              SOF_TIMESTAMPING_TX_SOFTWARE |
 
-            | SOF_TIMESTAMPING_RX_SOFTWARE
-            | SOF_TIMESTAMPING_RX_HARDWARE
+             SOF_TIMESTAMPING_RX_SOFTWARE |
+            // | SOF_TIMESTAMPING_RX_HARDWARE |
 
-            | SOF_TIMESTAMPING_SOFTWARE
-            | SOF_TIMESTAMPING_RAW_HARDWARE
+            SOF_TIMESTAMPING_SOFTWARE 
+            // | SOF_TIMESTAMPING_RAW_HARDWARE
             ;
     }
     
@@ -47,55 +80,49 @@ int createSocket(int family, int type, int protocol)
         raiseError("Failed to setsockopt");
     }
 
+    int v = 1;
+    res = setsockopt(fd, SOL_SOCKET, SO_REUSEADDR, &v, sizeof(v));
+    if(res != 0)
+    {
+        raiseError("Failed to setsockopt");
+    }
+
     return fd;
 }
 
-void processCtrlMessage(cmsghdr &chdr)
+void closeSockPair(const SocketPair& p)
 {
-    std::cout << "cmsg_level = " << chdr.cmsg_level << " cmsg_type = " << chdr.cmsg_type << std::endl;
-    
-    switch(chdr.cmsg_level)
+    if(p.transport == Transport::UDP_LOCAL || p.transport == Transport::TCP_LOCAL)
     {
-        case(SOL_SOCKET):
+        // unlink(p.);
+        // unlink(p.serverFd->getFd());
+    }
+
+    if(p.transport == Transport::TCP)
+    {
+        if(shutdown(p.clientFd->getFd(), SHUT_RDWR) != 0)
         {
-            switch(chdr.cmsg_type)
-            {
-                case(SO_TIMESTAMPING):
-                {
-                    std::cout << "Got SO_TIMESTAMPING\n";
-
-                    scm_timestamping ts = {};
-
-                    std::memcpy(&ts, CMSG_DATA(&chdr), sizeof(ts));
-
-                    std::cout << "ts[0]" << ts.ts[0].tv_sec << " " << ts.ts[0].tv_nsec
-                              << "\nts[1]" << ts.ts[1].tv_sec << " " << ts.ts[1].tv_nsec
-                              << "\nts[2]" << ts.ts[2].tv_sec << " " << ts.ts[2].tv_nsec << std::endl;
-                    break;
-                }
-                case(SO_TIMESTAMPNS):
-                {
-                    std::cout << "Got SO_TIMESTAMPNS\n";
-
-                    timespec ts = {};
-                    std::memcpy(&ts, CMSG_DATA(&chdr), sizeof(ts));
-                    std::cout << "ts: " << ts.tv_sec << " " << ts.tv_nsec << std::endl;
-
-                    break;
-                }
-                default:
-                {
-                    std::cout << "unsupported cmsg_type = " << chdr.cmsg_type << std::endl;
-                }
-            }
-            break;
+            std::cerr << "Failed to shutdown client socket\n";
         }
-        default:
+        
+        if(shutdown(p.serverFd->getFd(), SHUT_RDWR) != 0)
         {
-            std::cout << "Unknown cmsg_level\n";
+            std::cerr << "Failed to shutdown server socket\n";
         }
     }
-}
 
+    int rc = close(p.clientFd->getFd());
+    if(rc != 0)
+    {
+        std::cerr << "Failed to close client socket\n";
+    }
+
+
+    rc = close(p.serverFd->getFd());
+    if(rc != 0)
+    {
+        std::cerr << "Failed to close server socket\n";
+    }
+}
 
 }

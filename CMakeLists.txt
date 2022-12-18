@@ -3,4 +3,21 @@ project(timestamping)
 
 set(CMAKE_CXX_STANDARD 17)
 
-add_executable(ts main.cpp stream.cpp dgram.cpp util.cpp)
+set(CMAKE_EXPORT_COMPILE_COMMANDS ON)
+
+
+add_library(app 
+    stream.cpp
+    dgram.cpp 
+    util.cpp 
+    SocketWrapper.cpp 
+    Logger.cpp 
+    Sender.cpp 
+    Receiver.cpp 
+    ctrlMsgUtils.cpp 
+    Endpoint.cpp)
+
+target_include_directories(app PUBLIC ${CMAKE_CURRENT_SOURCE_DIR})
+
+add_executable(ts main.cpp)
+target_link_libraries(ts app)

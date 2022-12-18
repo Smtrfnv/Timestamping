@@ -18,7 +18,10 @@ SocketPair createUdpPair()
     const int port = 2552;
 
     {
-        spair.serverFd = createSocket (AF_INET, SOCK_DGRAM, IPPROTO_UDP);
+        int serverFd = createSocket (AF_INET, SOCK_DGRAM, IPPROTO_UDP);
+
+        spair.serverFd = std::make_shared<SocketWrapper>("Server_udp", serverFd, Transport::UDP);
+
         sockaddr_in servaddr = {};
         servaddr.sin_family = AF_INET;
         servaddr.sin_port = htons(port);
@@ -26,21 +29,21 @@ SocketPair createUdpPair()
         int res = inet_pton(AF_INET, "127.0.0.1", &servaddr.sin_addr);
         if(res != 1)
         {
-            raiseError("Server: failed to inet_pton");
+            raiseError("Server_udp: failed to inet_pton");
         }
 
-        spair.serveraddr_in = servaddr;
+        spair.serveraddr = servaddr;
 
-        res = bind(spair.serverFd, (sockaddr *)&servaddr, sizeof(servaddr));
+        res = bind(spair.serverFd->getFd(), (sockaddr *)&servaddr, sizeof(servaddr));
         if(res != 0)
         {
-            raiseError("Server: failed to bind");
+            raiseError("Server_udp: failed to bind");
         }
     }        
 
-    {
-        spair.clientFd = createSocket (AF_INET, SOCK_DGRAM, IPPROTO_UDP);   
-    }
+    
+    int clientFd = createSocket (AF_INET, SOCK_DGRAM, IPPROTO_UDP);
+    spair.clientFd = std::make_shared<SocketWrapper>("Client_udp", clientFd, Transport::UDP);
 
     return spair;
 }
@@ -53,7 +56,9 @@ SocketPair createDgramLocalPair()
     const char* sockPathServer = "ts.server";
 
     {
-        spair.serverFd = createSocket (AF_UNIX, SOCK_DGRAM, 0);
+        int serverFd = createSocket (AF_UNIX, SOCK_DGRAM, 0);
+
+        spair.serverFd = std::make_shared<SocketWrapper>("Server_udp_local", serverFd, Transport::UDP_LOCAL);
 
         sockaddr_un servaddr = {};
         servaddr.sun_family = AF_UNIX;
@@ -61,19 +66,20 @@ SocketPair createDgramLocalPair()
 
         unlink(sockPathServer);
 
-        int res = bind(spair.serverFd, (sockaddr*) &servaddr, sizeof(servaddr));
+        int res = bind(spair.serverFd->getFd(), (sockaddr*) &servaddr, sizeof(servaddr));
         if(res  != 0)
         {
-            raiseError("Server: failed to bind");
+            raiseError("Server_udp_local: failed to bind");
         }
 
-        spair.serveraddr_un = servaddr;
+        spair.serveraddr = servaddr;
     }
 
     {
         const char* sockPathClient = "ts.client";
 
-        spair.clientFd = createSocket (AF_UNIX, SOCK_DGRAM, 0);
+        int clientFd = createSocket (AF_UNIX, SOCK_DGRAM, 0);
+        spair.clientFd = std::make_shared<SocketWrapper>("Client_udp_local", clientFd, Transport::UDP_LOCAL);
 
         sockaddr_un clientaddr = {};
         clientaddr.sun_family = AF_UNIX;
@@ -81,10 +87,10 @@ SocketPair createDgramLocalPair()
 
         unlink(sockPathClient);
 
-        int res = bind(spair.clientFd, (sockaddr*) &clientaddr, sizeof(clientaddr));
+        int res = bind(spair.clientFd->getFd(), (sockaddr*) &clientaddr, sizeof(clientaddr));
         if(res  != 0)
         {
-            raiseError("Server: failed to bind");
+            raiseError("Client_udp_local: failed to bind");
         }
         
     }

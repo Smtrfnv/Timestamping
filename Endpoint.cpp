@@ -18,6 +18,8 @@ void Endpoint::start(const SocketPair& p, Mode mode)
             Sender::Params params = {};
             params.receiveraddr = p.serveraddr;
             params.msToSleep = 2000;
+            params.sendBufferSize = 1600;
+            params.mode = Sender::Mode::LargePackets;
             s.start(params);
         };
         trd = std::thread(l);
@@ -29,7 +31,7 @@ void Endpoint::start(const SocketPair& p, Mode mode)
         auto l = [&](){
             Receiver r(p.serverFd);
             Receiver::Params params = {};
-            params.bufferCapacity = 1024;
+            params.bufferCapacity = 10000;
             r.start(params);
         };
         trd = std::thread(l);

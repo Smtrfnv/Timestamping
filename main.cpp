@@ -18,9 +18,8 @@ namespace ts
 
 void signalHandler(int s)
 {
-           printf("Caught signal %d\n",s);
-           exit(1); 
-
+    printf("Caught signal %d\n",s);
+    exit(1); 
 }
 
 void registerSigintHandler()

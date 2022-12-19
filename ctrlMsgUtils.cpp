@@ -1,6 +1,7 @@
 #include "ctrlMsgUtils.hpp"
 
 #include "Logger.hpp"
+#include "util.hpp"
 
 #include <cstring>
 
@@ -120,6 +121,11 @@ void recvCtrlMessageTx(int sockFd, uint8_t* buf, size_t capacity)
     //     std::cout << (int32_t)(buf[i]);
     // }
     // std::cout << std::endl;
+
+    if(res == -1)
+    {
+        raiseError("recvmsg error");
+    }
 
     if(res != -1)
     {

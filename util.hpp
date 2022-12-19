@@ -10,7 +10,7 @@
 namespace ts
 {
 
-void raiseError( const char* x);
+void raiseError(const char* format, ...);
 
 SocketPair createSocketPair(Transport t);
 void closeSockPair(const SocketPair& p);

@@ -4,6 +4,7 @@
 
 #include <memory>
 #include <variant>
+#include <vector>
 
 #include <netinet/in.h>
 #include <sys/un.h>
@@ -43,9 +44,12 @@ private:
     void incrementalSend(const Params&);
 
     void createEpollAndTimer(const Params&);
+    void consumeTimer() const;
+    void performSend(int iteration, const Params& p);
 
     
     std::shared_ptr<SocketWrapper> socket;
+    std::vector<char> sendBuf;
     
     int epollFd;
     int timerFd;

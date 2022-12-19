@@ -6,6 +6,7 @@
 
 #include <iostream>
 #include <cstring>
+#include <cstdarg>
 
 #include <sys/socket.h>
 #include <linux/net_tstamp.h>
@@ -14,9 +15,19 @@
 namespace ts
 {
 
-void raiseError( const char* x)
+void raiseError(const char* format, ...)
 {
-    std::cerr << x << "\n last error = " << strerror(errno) << std::endl;
+    const size_t CAPACITY = 1024;
+    char buf[CAPACITY];
+
+    va_list args;
+    va_start(args, format);
+
+    vsnprintf(buf, CAPACITY, format, args);
+
+    va_end(args);
+
+    std::cerr << buf << "\n last error = " << strerror(errno) << std::endl;
     exit(1);
 }
 
@@ -26,22 +37,22 @@ SocketPair createSocketPair(Transport t)
     if(t == Transport::TCP)
     {
         p = createTcpPair();
-        std::cout << "TCP socket pair created\n";
+        TSLOG("TCP socket pair created");
     }
     else if(t == Transport::TCP_LOCAL)
     {
         p = createStreamLocalPair();
-        std::cout << "TCP_LOCAL socket pair created\n";
+        TSLOG("TCP_LOCAL socket pair created");
     }
     else if(t == Transport::UDP)
     {
         p = createUdpPair();
-        std::cout << "UDP socket pair created\n";
+        TSLOG("UDP socket pair created");
     }
     else if(t == Transport::UDP_LOCAL)
     {
         p = createDgramLocalPair();
-        std::cout << "UDP_LOCAL socket pair created\n";
+        TSLOG("UDP_LOCAL socket pair created");
     }
     else
         raiseError("createSocketPair:: unsupported transport type");
@@ -65,7 +76,7 @@ int createSocket(int family, int type, int protocol)
             // SOF_TIMESTAMPING_TX_HARDWARE
               SOF_TIMESTAMPING_TX_SOFTWARE |
 
-             SOF_TIMESTAMPING_RX_SOFTWARE |
+            //  SOF_TIMESTAMPING_RX_SOFTWARE |
             // | SOF_TIMESTAMPING_RX_HARDWARE |
 
             SOF_TIMESTAMPING_SOFTWARE 

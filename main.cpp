@@ -31,7 +31,7 @@ void registerSigintHandler()
     sigaction(SIGINT, &sigIntHandler, NULL);
 }
 
-Transport getTransportType(const char * str)
+Transport getTransportType(char * str)
 {
     if(strcmp("tcp", str) == 0)
     {
@@ -53,6 +53,55 @@ Transport getTransportType(const char * str)
     return Transport::TCP;
 }
 
+struct Params
+{
+    Transport transport = Transport::UDP;
+    bool enableLog = false;
+    int timeToSleepMs = 2000;
+};
+
+Params parseOptions(int argc, char* argv[])
+{
+    Params p;
+    int c;
+    while ((c = getopt(argc, argv, "t:ls:")) != -1)
+    {
+        switch(c)
+        {
+            case('t'):
+            {
+                std::cout << "got option t\n";
+                Transport t = getTransportType(optarg);
+                std::cout << toString(t) << std::endl;
+
+                p.transport = t;
+
+            } break;
+
+            case('l'):
+            {
+                std::cout << "got option l\n";
+                p.enableLog = true;
+            } break;
+
+            case('s'):
+            {
+                std::cout << "got option s\n";
+                int time = atoi(optarg);
+                p.timeToSleepMs = time;
+                std::cout << "tts " << p.timeToSleepMs << std::endl;
+            }
+
+            default:
+            {
+                std::cerr << "unsupported option " << c << std::endl;
+            }
+        }
+    }
+
+    return p;
+}
+
 } //namespace ts
 
 
@@ -60,26 +109,40 @@ int main(int argc, char* argv[])
 {
     using namespace ts;
 
-    Logger::enable();
+    Params param = parseOptions(argc, argv);
+
+
+    if(param.enableLog) Logger::enable();
+    else Logger::disable();
+
     TSLOG("Hello from logger");
 
-    if(argc != 2)
-    {
-        raiseError("Incorrect number of arguments, should be 1");
-    }
-
-    const Transport transport = getTransportType(argv[1]);
+    bool udpSpamMode = false;
 
     registerSigintHandler();
 
-    const SocketPair p = createSocketPair(transport);
+    const SocketPair p = createSocketPair(param.transport);
 
-    Endpoint tx;
-    Endpoint rx;
+    Endpoint::Params epPar;
+    epPar.msToSleep = param.timeToSleepMs;
+
+    if(udpSpamMode == false)
+    {
+        Endpoint tx;
+        Endpoint rx;
+
     
-    rx.start(p, Endpoint::Mode::RX);
-    tx.start(p, Endpoint::Mode::TX);
+        rx.start(p, Endpoint::Mode::RX, epPar);
+        tx.start(p, Endpoint::Mode::TX, epPar);
 
-    rx.wait();
-    tx.wait();
+        rx.wait();
+        tx.wait();
+    }
+    else
+    {
+        Endpoint tx;
+        tx.start(p, Endpoint::Mode::TX, epPar);
+        tx.wait();
+
+    }
 }

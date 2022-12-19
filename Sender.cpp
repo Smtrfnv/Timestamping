@@ -8,7 +8,6 @@
 #include <cstring>
 #include <chrono>
 #include <thread>
-#include <vector>
 
 #include <sys/epoll.h>
 #include <sys/socket.h>
@@ -18,7 +17,7 @@
 namespace ts
 {
 
-Sender::Sender(const std::shared_ptr<SocketWrapper>& s) : socket(s), epollFd(0), timerFd(0)
+Sender::Sender(const std::shared_ptr<SocketWrapper>& s) : socket(s), sendBuf(), epollFd(0), timerFd(0)
 {}
 
 Sender::~Sender()
@@ -40,68 +39,54 @@ void Sender::start(const Params& p)
 
 void Sender::incrementalSend(const Params& p)
 {
-    std::vector<char> buf(p.sendBufferSize, 0);
+    sendBuf.resize(p.sendBufferSize);
 
     createEpollAndTimer(p);
 
     const size_t MAX_EVENTS = 10;
     epoll_event epevents[MAX_EVENTS] = {};
 
-    for(int i = 0;;++i)
+    int pktNum = 0;
+
+    while(true)
     {
-        snprintf(buf.data(), buf.size(), "%d", i);
-
-        TSLOG("sending [%s]", buf.data());
-
-        const size_t sendLen = p.mode == Mode::SmallPackets ? strlen(buf.data()) : buf.size();
-        
-        int n = 0;
-        Transport t = socket->getTransport();
-        if(t == Transport::TCP || t == Transport::TCP_LOCAL)
+        if(p.msToSleep != 0)
         {
-            n = send(socket->getFd(), buf.data(), sendLen, 0);
-        }
-        else if(t == Transport::UDP)
-        {
-            n = sendto(socket->getFd(), buf.data(), sendLen, 0, (sockaddr*) &std::get<sockaddr_in>(p.receiveraddr), sizeof(sockaddr_in));
-        }
-        else if(t == Transport::UDP_LOCAL)
-        {
-            n = sendto(socket->getFd(), buf.data(), sendLen, 0, (sockaddr*)  &std::get<sockaddr_un>(p.receiveraddr), sizeof(sockaddr_un));
-        }
+            const int numEvents = epoll_wait(epollFd, epevents, MAX_EVENTS, -1);
+            if(numEvents == -1)
+            {
+                raiseError("epoll_wait error %d : %s", numEvents, strerror(errno));
+            }
 
-        if(n == -1)
-        {
-            TSLOG("Failed to send");
-            continue;
-        }
+            TSLOG("epoll_wait result: %d", numEvents);
 
-        TSLOG("sent %d bytes out of %d", n, sendLen);
-
-        recvCtrlMessageTx(socket->getFd());
-    
-        // {
-        //     using namespace std::chrono_literals;
-        //     std::this_thread::sleep_for(std::chrono::milliseconds(p.msToSleep));
-        // }
-
-        const int res = epoll_wait(epollFd, epevents, MAX_EVENTS, -1);
-        if(res == -1)
-        {
-            TSLOG("epoll_wait error %d : %s", res, strerror(errno));
+            for(int i = 0; i < numEvents; ++i)
+            {
+                if(epevents[i].data.fd == timerFd)
+                {
+                    // consume timer and do send
+                    consumeTimer();
+                    performSend(pktNum, p);
+                    recvCtrlMessageTx(socket->getFd());
+                    ++pktNum;
+                }
+                else if(epevents[i].data.fd == socket->getFd())
+                {
+                    //read msgerror queue
+                    recvCtrlMessageTx(socket->getFd());
+                }
+                else
+                {
+                    raiseError("Incorrect epoll event received");
+                }
+            }
         }
         else
         {
-            TSLOG("epoll_wait result: %d", res);
-            //right now it is possible only to read a timer
-
-            ssize_t expired = 0;
-            int res = read(timerFd, &expired, sizeof(expired));
-            if(res == -1)
-            {
-                raiseError("Failed to read from timer");
-            }
-            TSLOG("Timer expired %d times", expired);
+            //special mode - infinite loop without polling
+            performSend(pktNum, p);
+            recvCtrlMessageTx(socket->getFd());
+            ++pktNum;
         }
     }
 }
@@ -130,14 +115,67 @@ void Sender::createEpollAndTimer(const Params& p)
         raiseError("Failed to start timer");
     }
 
-    epoll_event epevent = {};
-    epevent.events = EPOLLIN;
-
-
-    if(epoll_ctl(epollFd, EPOLL_CTL_ADD, timerFd, &epevent) != 0)
     {
-        raiseError("Failed to add timerFd to epoll interest list");
+        epoll_event epevent = {};
+        epevent.events = EPOLLIN;
+        epevent.data.fd = timerFd;
+        if(epoll_ctl(epollFd, EPOLL_CTL_ADD, timerFd, &epevent) != 0)
+        {
+            raiseError("Failed to add timerFd to epoll interest list");
+        }
     }
+
+    {
+        epoll_event epevent = {};
+        epevent.events = EPOLLERR;
+        epevent.data.fd = socket->getFd();
+        if(epoll_ctl(epollFd, EPOLL_CTL_ADD, socket->getFd(), &epevent) != 0)
+        {
+            raiseError("Failed to add sockFd to epoll interest list");
+        }
+    }
+}
+
+void Sender::consumeTimer() const
+{
+    ssize_t expired = 0;
+    int res = read(timerFd, &expired, sizeof(expired));
+    if(res == -1)
+    {
+        raiseError("Failed to read from timer");
+    }
+    TSLOG("Timer expired %d times", expired);
+}
+
+void Sender::performSend(int packetNum, const Params& p)
+{
+    snprintf(sendBuf.data(), sendBuf.size(), "%d", packetNum);
+
+    TSLOG("sending [%s]", sendBuf.data());
+
+    const size_t sendLen = p.mode == Mode::SmallPackets ? strlen(sendBuf.data()) : sendBuf.size();
+    
+    int n = 0;
+    Transport t = socket->getTransport();
+    if(t == Transport::TCP || t == Transport::TCP_LOCAL)
+    {
+        n = send(socket->getFd(), sendBuf.data(), sendLen, 0);
+    }
+    else if(t == Transport::UDP)
+    {
+        n = sendto(socket->getFd(), sendBuf.data(), sendLen, 0, (sockaddr*) &std::get<sockaddr_in>(p.receiveraddr), sizeof(sockaddr_in));
+    }
+    else if(t == Transport::UDP_LOCAL)
+    {
+        n = sendto(socket->getFd(), sendBuf.data(), sendLen, 0, (sockaddr*)  &std::get<sockaddr_un>(p.receiveraddr), sizeof(sockaddr_un));
+    }
+
+    if(n == -1)
+    {
+        TSLOG("Failed to send");
+    }
+
+    TSLOG("sent %d bytes out of %d", n, sendLen);
 }
 
 }

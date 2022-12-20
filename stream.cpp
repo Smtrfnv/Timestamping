@@ -156,4 +156,9 @@ SocketPair createStreamLocalPair()
     return spair;
 }
 
+int createStreamSocket()
+{
+    return createSocket(AF_INET, SOCK_STREAM, IPPROTO_TCP);;
+}
+
 }

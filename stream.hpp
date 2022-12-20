@@ -9,4 +9,6 @@ SocketPair createTcpPair();
 
 SocketPair createStreamLocalPair();
 
+int createStreamSocket();
+
 }

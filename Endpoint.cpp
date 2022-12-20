@@ -5,6 +5,9 @@
 #include "Logger.hpp"
 #include "util.hpp"
 #include "dgram.hpp"
+#include "stream.hpp"
+
+#include <unistd.h>
 
 namespace ts
 {
@@ -109,37 +112,11 @@ void EndpointNew::init()
 
     if(description.transport == Transport::UDP)
     {
-
-        const int fd = createDgramSocket();
-        if(fd == -1)
-        {
-            raiseError("Failed to create socket");
-        }
-
-        socket = std::make_shared<SocketWrapper>("some name", fd, Transport::UDP);
-
-        //now need to extract address and port
-        if(description.selfAddr.empty() == false) //need to do bind
-        {
-            const auto addr = getIpV4AddressAndPort(description.selfAddr);
-            if(!addr)
-            {
-                raiseError("Failed to create socket");
-            }
-
-            EPLOG("addr is %u, port is %u", addr->sin_addr.s_addr, addr->sin_port);
-
-            if(bind(fd, (sockaddr *)&(addr.value()), sizeof(addr.value())) != 0)
-            {
-                raiseError("Endpoint_udp: failed to bind");
-            }
-            selfaddr = *addr;
-            EPLOG("binding is done")
-        }
-        else
-        {
-            EPLOG("skip binding as address is empty")
-        }
+        initUdp();
+    }
+    else if(description.transport == Transport::TCP)
+    {
+        initTcp();
     }
     else
     {
@@ -148,6 +125,98 @@ void EndpointNew::init()
 
     readyToOperate = true;
     cvOperational.notify_one();
+}
+
+void EndpointNew::initUdp()
+{
+    const int fd = createDgramSocket();
+    if(fd == -1)
+    {
+        raiseError("Failed to create socket");
+    }
+
+    socket = std::make_shared<SocketWrapper>("some name", fd, Transport::UDP);
+
+    //now need to extract address and port
+    if(description.selfAddr.empty() == false) //need to do bind
+    {
+        const auto addr = getIpV4AddressAndPort(description.selfAddr);
+        if(!addr)
+        {
+            raiseError("Failed to create socket");
+        }
+
+        if(bind(fd, (sockaddr *)&(addr.value()), sizeof(addr.value())) != 0)
+        {
+            raiseError("Endpoint_udp: failed to bind");
+        }
+        selfaddr = *addr;
+        EPLOG("binding is done")
+    }
+    else
+    {
+        EPLOG("skip binding as address is empty")
+    }
+}
+
+
+void EndpointNew::initTcp()
+{
+    if(description.selfAddr.empty()) //this would be a client
+    {
+        const int clientFd = createStreamSocket();
+        
+        socket = std::make_shared<SocketWrapper>("Client_tcp", clientFd, Transport::TCP);
+
+        const auto peerAddr = getIpV4AddressAndPort(description.peerAddr);
+        if(!peerAddr)
+        {
+            raiseError("Failed to parse peer addr");
+        }
+        
+        if(connect(socket->getFd(), (sockaddr*) &(*peerAddr), sizeof(*peerAddr)) != 0)
+        {
+            raiseError("initTcp: failed to connect");
+        }
+
+        EPLOG("connectrion established");
+    }
+    else //server
+    {
+        const int listenfd = createStreamSocket();
+
+        const auto addr = getIpV4AddressAndPort(description.selfAddr);
+        if(addr.has_value() == false)
+        {
+            raiseError("Failed to create socket");
+        }
+
+        if(bind(listenfd, (sockaddr *) &(addr.value()), sizeof(addr.value())) != 0)
+        {
+            close(listenfd);
+            raiseError("initTcp: failed to do bind");
+        }
+
+        if(listen(listenfd, 1) != 0)
+        {
+            close(listenfd);
+            raiseError("initTcp: Failed to listen");
+        }
+
+        sockaddr_in cliaddr = {};
+        socklen_t clilen = sizeof(clilen);
+
+        const int serverFd = accept(listenfd, (sockaddr*) &cliaddr, &clilen);
+        if(serverFd == -1)
+        {
+            raiseError("initTcp: failed to accept connection\n");
+        }
+        socket = std::make_shared<SocketWrapper>("Server_tcp", serverFd, Transport::TCP);
+
+        EPLOG("connection accepted");
+    
+        close(listenfd);
+    }
 }
 
 void EndpointNew::processTask()

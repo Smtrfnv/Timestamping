@@ -159,8 +159,6 @@ std::optional<sockaddr_in> getIpV4AddressAndPort(const std::string& addrAndPort)
     const std::string addr = addrAndPort.substr(0, pos);
     const std::string port = addrAndPort.substr(pos + 1);
 
-    TSLOG("addr %s port %s", addr.c_str(), port.c_str());
-
     if(addr.empty() || port.empty())
     {
         return std::nullopt;

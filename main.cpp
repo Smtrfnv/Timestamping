@@ -102,6 +102,74 @@ Params parseOptions(int argc, char* argv[])
     return p;
 }
 
+
+void udpScenario()
+{
+    EndpointDescription recvD;
+    recvD.name = "endpoint udp rx";
+    recvD.selfAddr = "127.0.0.1:2552";
+    recvD.transport = Transport::UDP;
+
+    EndpointNew rxEndp(recvD);
+
+
+    
+    EndpointDescription sendD;
+    sendD.name = "endpoint udp tx";
+    sendD.transport = Transport::UDP;
+
+    EndpointNew txEndp(sendD);
+
+
+    rxEndp.start();
+    txEndp.start();
+    rxEndp.waitReadtyToOperate();
+    txEndp.waitReadtyToOperate();
+
+
+    {
+        EndpointNew::Task rxTask = {};
+        rxTask.mode = EndpointNew::Mode::RX;
+        rxEndp.startTask(rxTask);
+    }
+
+    {
+        EndpointNew::Task txTask = {};
+        txTask.mode = EndpointNew::Mode::TX;
+        txTask.msToSleep = 2000;
+        txTask.sendBufferSize = 1024;
+        txTask.targetaddr = rxEndp.getAddr();
+
+        txEndp.startTask(txTask);
+    }
+
+    txEndp.wait();
+    rxEndp.wait();
+}
+
+void tcpScenario()
+{
+    std::string servAddr = "127.0.0.1:2553";
+    EndpointDescription recvD;
+    recvD.name = "endpoint tcp rx";
+    recvD.selfAddr = servAddr;
+    recvD.transport = Transport::TCP;
+
+    EndpointNew rxEndp(recvD);
+
+    EndpointDescription sendD;
+    sendD.name = "endpoint tcp tx";
+    sendD.peerAddr = servAddr;
+    sendD.transport = Transport::TCP;
+
+    EndpointNew txEndp(sendD);
+
+    rxEndp.start();
+    txEndp.start();
+    rxEndp.waitReadtyToOperate();
+    txEndp.waitReadtyToOperate();
+}
+
 } //namespace ts
 
 
@@ -148,50 +216,9 @@ int main(int argc, char* argv[])
 
     // createSocketPair(Transport::UDP);
 
-    EndpointDescription recvD;
-    recvD.name = "endpoint rx";
-    recvD.selfAddr = "127.0.0.1:2552";
-    recvD.transport = Transport::UDP;
+    // udpScenario();
+    tcpScenario();
 
-    EndpointNew rxEndp(recvD);
-
-
-    
-    EndpointDescription sendD;
-    sendD.name = "endpoint tx";
-    sendD.transport = Transport::UDP;
-
-    EndpointNew txEndp(sendD);
-
-
-
-
-
-
-    rxEndp.start();
-    txEndp.start();
-    rxEndp.waitReadtyToOperate();
-    txEndp.waitReadtyToOperate();
-
-
-    {
-        EndpointNew::Task rxTask = {};
-        rxTask.mode = EndpointNew::Mode::RX;
-        rxEndp.startTask(rxTask);
-    }
-
-    {
-        EndpointNew::Task txTask = {};
-        txTask.mode = EndpointNew::Mode::TX;
-        txTask.msToSleep = 2000;
-        txTask.sendBufferSize = 1024;
-        txTask.targetaddr = rxEndp.getAddr();
-
-        txEndp.startTask(txTask);
-    }
-
-    txEndp.wait();
-    rxEndp.wait();
 
 
     TSLOG("DONE");

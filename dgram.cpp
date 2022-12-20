@@ -103,8 +103,7 @@ SocketPair createDgramLocalPair()
 
 int createDgramSocket()
 {
-    int serverFd = createSocket (AF_INET, SOCK_DGRAM, IPPROTO_UDP);
-    return serverFd;
+    return createSocket (AF_INET, SOCK_DGRAM, IPPROTO_UDP);
 }
 
 }

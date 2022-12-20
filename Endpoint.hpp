@@ -81,6 +81,9 @@ private:
 
     void routine();
     void init();
+    void initUdp();
+    void initTcp();
+
     void processTask();
 
     const EndpointDescription description;

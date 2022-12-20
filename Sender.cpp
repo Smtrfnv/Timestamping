@@ -172,7 +172,7 @@ void Sender::performSend(int packetNum, const Params& p)
 
     if(n == -1)
     {
-        TSLOG("Failed to send");
+        TSLOG("Failed to send, error is %s", strerror(errno));
     }
 
     TSLOG("sent %d bytes out of %d", n, sendLen);

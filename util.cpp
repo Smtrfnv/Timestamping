@@ -7,10 +7,12 @@
 #include <iostream>
 #include <cstring>
 #include <cstdarg>
+#include <vector>
 
 #include <sys/socket.h>
 #include <linux/net_tstamp.h>
 #include <unistd.h>
+#include <arpa/inet.h>
 
 namespace ts
 {
@@ -65,7 +67,10 @@ int createSocket(int family, int type, int protocol)
 
     int fd = socket(family, type, protocol);
     if(fd < 0)
-        raiseError("socket creation error");
+    {
+        TSLOG("socket creation error");
+        return -1;
+    }
 
     
     uint32_t val = 1;
@@ -88,7 +93,9 @@ int createSocket(int family, int type, int protocol)
 
     if(res != 0)
     {
-        raiseError("Failed to setsockopt");
+        TSLOG("Failed to setsockopt");
+        close(fd);
+        return -1;
     }
 
     int v = 1;
@@ -96,6 +103,8 @@ int createSocket(int family, int type, int protocol)
     if(res != 0)
     {
         raiseError("Failed to setsockopt");
+        close(fd);
+        return -1;
     }
 
     return fd;
@@ -135,5 +144,40 @@ void closeSockPair(const SocketPair& p)
         std::cerr << "Failed to close server socket\n";
     }
 }
+
+
+std::optional<sockaddr_in> getIpV4AddressAndPort(const std::string& addrAndPort)
+{
+    const char delimeter = ':';
+
+    int pos = addrAndPort.find(delimeter, 0);
+    if(pos == std::string::npos)
+    {
+        return std::nullopt;
+    }
+
+    const std::string addr = addrAndPort.substr(0, pos);
+    const std::string port = addrAndPort.substr(pos + 1);
+
+    TSLOG("addr %s port %s", addr.c_str(), port.c_str());
+
+    if(addr.empty() || port.empty())
+    {
+        return std::nullopt;
+    }
+
+    sockaddr_in saddr = {};
+    saddr.sin_family = AF_INET;
+    saddr.sin_port = htons(std::stoul(port));
+
+    if(inet_pton(AF_INET, addr.c_str(), &saddr.sin_addr) != 1)
+    {
+        return std::nullopt;
+    }
+
+    return saddr;
+
+}
+
 
 }

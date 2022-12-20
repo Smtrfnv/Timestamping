@@ -116,7 +116,7 @@ int main(int argc, char* argv[])
     else Logger::disable();
 
     TSLOG("Hello from logger");
-
+#if 0
     bool udpSpamMode = false;
 
     registerSigintHandler();
@@ -143,6 +143,56 @@ int main(int argc, char* argv[])
         Endpoint tx;
         tx.start(p, Endpoint::Mode::TX, epPar);
         tx.wait();
-
     }
+#endif
+
+    // createSocketPair(Transport::UDP);
+
+    EndpointDescription recvD;
+    recvD.name = "endpoint rx";
+    recvD.selfAddr = "127.0.0.1:2552";
+    recvD.transport = Transport::UDP;
+
+    EndpointNew rxEndp(recvD);
+
+
+    
+    EndpointDescription sendD;
+    sendD.name = "endpoint tx";
+    sendD.transport = Transport::UDP;
+
+    EndpointNew txEndp(sendD);
+
+
+
+
+
+
+    rxEndp.start();
+    txEndp.start();
+    rxEndp.waitReadtyToOperate();
+    txEndp.waitReadtyToOperate();
+
+
+    {
+        EndpointNew::Task rxTask = {};
+        rxTask.mode = EndpointNew::Mode::RX;
+        rxEndp.startTask(rxTask);
+    }
+
+    {
+        EndpointNew::Task txTask = {};
+        txTask.mode = EndpointNew::Mode::TX;
+        txTask.msToSleep = 2000;
+        txTask.sendBufferSize = 1024;
+        txTask.targetaddr = rxEndp.getAddr();
+
+        txEndp.startTask(txTask);
+    }
+
+    txEndp.wait();
+    rxEndp.wait();
+
+
+    TSLOG("DONE");
 }

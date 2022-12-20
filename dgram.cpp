@@ -1,5 +1,7 @@
 #include "dgram.hpp"
 
+#include "Logger.hpp"
+
 #include <iostream>
 
 #include <linux/socket.h>
@@ -31,6 +33,7 @@ SocketPair createUdpPair()
         {
             raiseError("Server_udp: failed to inet_pton");
         }
+        TSLOG("addr %u, port %u", servaddr.sin_addr.s_addr, servaddr.sin_port);
 
         spair.serveraddr = servaddr;
 
@@ -96,6 +99,12 @@ SocketPair createDgramLocalPair()
     }
 
     return spair;
+}
+
+int createDgramSocket()
+{
+    int serverFd = createSocket (AF_INET, SOCK_DGRAM, IPPROTO_UDP);
+    return serverFd;
 }
 
 }

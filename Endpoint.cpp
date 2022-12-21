@@ -126,6 +126,10 @@ void EndpointNew::init()
     {
         initTcp();
     }
+    else if(description.transport == Transport::TCP_LOCAL)
+    {
+        initTcpLocal();
+    }
     else
     {
         raiseError("Unsupported transport");
@@ -274,6 +278,60 @@ void EndpointNew::initUdpLocal()
             raiseError("Server_udp_local: failed to bind");
         }
         selfaddr = sockaddrUn;
+    }
+}
+
+void EndpointNew::initTcpLocal()
+{
+    if(description.selfAddr.empty()) //this would be a client
+    {
+        const int fd = createStreamLocalSocket();
+        
+        socket = std::make_shared<SocketWrapper>(description.name.c_str(), fd, Transport::TCP_LOCAL);
+
+        auto peerAddr = convertUnixSocketAddr(description.peerAddr);
+        
+        if(connect(fd, (sockaddr*) &(peerAddr), sizeof(peerAddr)) != 0)
+        {
+            raiseError("initTcpLocal: failed to connect");
+        }
+
+        EPLOG("connectrion established");
+    }    
+    else // server
+    {
+        const int listenFd = createStreamLocalSocket();
+
+        sockaddr_un serverAddr = convertUnixSocketAddr(description.selfAddr);
+
+        unlink(description.selfAddr.c_str());
+
+        int res = bind(listenFd, (sockaddr*) &serverAddr, sizeof(serverAddr));
+        if(res != 0)
+        {
+            close(listenFd);
+            raiseError("initTcpLocal: failed to bind");
+        }
+
+        res = listen(listenFd, 1);
+        if(res != 0)
+        {
+            close(listenFd);
+            raiseError("initTcpLocal: failed to listen");
+        }
+
+        sockaddr_un clientAddress = {};
+        socklen_t clientAddrLen = sizeof(clientAddress);
+
+        int serverFd = accept(listenFd, (sockaddr*)&clientAddress, &clientAddrLen);
+        if(serverFd == -1)
+        {
+            raiseError("createStreamLocalPair: failed to accept connection\n");
+        }
+
+        socket = std::make_shared<SocketWrapper>(description.name.c_str(), serverFd, Transport::TCP_LOCAL);
+        selfaddr = serverAddr;
+        close(listenFd);
     }
 }
 

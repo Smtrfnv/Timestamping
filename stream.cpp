@@ -161,4 +161,9 @@ int createStreamSocket()
     return createSocket(AF_INET, SOCK_STREAM, IPPROTO_TCP);;
 }
 
+int createStreamLocalSocket()
+{
+    return createSocket(AF_UNIX, SOCK_STREAM, 0);
+}
+
 }

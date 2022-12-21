@@ -192,6 +192,53 @@ void tcpScenario()
     rxEndp.wait();
 }
 
+void tcpLocalScenario()
+{
+    std::string servAddr = "tcpLocal";
+    EndpointDescription recvD;
+    recvD.name = "endpoint tcp local rx";
+    recvD.selfAddr = servAddr;
+    recvD.transport = Transport::TCP_LOCAL;
+
+    EndpointNew rxEndp(recvD);
+
+    EndpointDescription sendD;
+    sendD.name = "endpoint tcp local tx";
+    sendD.peerAddr = servAddr;
+    sendD.transport = Transport::TCP_LOCAL;
+
+    EndpointNew txEndp(sendD);
+
+    rxEndp.start();
+
+    std::this_thread::sleep_for(std::chrono::seconds(2));
+
+    txEndp.start();
+    rxEndp.waitReadtyToOperate();
+    txEndp.waitReadtyToOperate();
+
+
+
+    {
+        EndpointNew::Task rxTask = {};
+        rxTask.mode = EndpointNew::Mode::RX;
+        rxEndp.startTask(rxTask);
+    }
+
+    {
+        EndpointNew::Task txTask = {};
+        txTask.mode = EndpointNew::Mode::TX;
+        txTask.msToSleep = 2000;
+        txTask.sendBufferSize = 1024;
+        txTask.targetaddr = rxEndp.getAddr();
+
+        txEndp.startTask(txTask);
+    }
+
+    txEndp.wait();
+    rxEndp.wait();
+}
+
 void udpLocalScenario()
 {
     EndpointDescription recvD;
@@ -284,7 +331,8 @@ int main(int argc, char* argv[])
 
     // udpScenario();
     // tcpScenario();
-    udpLocalScenario();
+    // udpLocalScenario();
+    tcpLocalScenario();
 
 
 

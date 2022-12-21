@@ -33,34 +33,6 @@ void raiseError(const char* format, ...)
     exit(1);
 }
 
-SocketPair createSocketPair(Transport t)
-{
-    SocketPair p;
-    if(t == Transport::TCP)
-    {
-        p = createTcpPair();
-        TSLOG("TCP socket pair created");
-    }
-    else if(t == Transport::TCP_LOCAL)
-    {
-        p = createStreamLocalPair();
-        TSLOG("TCP_LOCAL socket pair created");
-    }
-    else if(t == Transport::UDP)
-    {
-        p = createUdpPair();
-        TSLOG("UDP socket pair created");
-    }
-    else if(t == Transport::UDP_LOCAL)
-    {
-        p = createDgramLocalPair();
-        TSLOG("UDP_LOCAL socket pair created");
-    }
-    else
-        raiseError("createSocketPair:: unsupported transport type");
-    return p;
-}
-
 int createSocket(int family, int type, int protocol)
 {
     TSLOG("creating socket");
@@ -110,40 +82,6 @@ int createSocket(int family, int type, int protocol)
     return fd;
 }
 
-void closeSockPair(const SocketPair& p)
-{
-    if(p.transport == Transport::UDP_LOCAL || p.transport == Transport::TCP_LOCAL)
-    {
-        // unlink(p.);
-        // unlink(p.serverFd->getFd());
-    }
-
-    if(p.transport == Transport::TCP)
-    {
-        if(shutdown(p.clientFd->getFd(), SHUT_RDWR) != 0)
-        {
-            std::cerr << "Failed to shutdown client socket\n";
-        }
-        
-        if(shutdown(p.serverFd->getFd(), SHUT_RDWR) != 0)
-        {
-            std::cerr << "Failed to shutdown server socket\n";
-        }
-    }
-
-    int rc = close(p.clientFd->getFd());
-    if(rc != 0)
-    {
-        std::cerr << "Failed to close client socket\n";
-    }
-
-
-    rc = close(p.serverFd->getFd());
-    if(rc != 0)
-    {
-        std::cerr << "Failed to close server socket\n";
-    }
-}
 
 
 std::optional<sockaddr_in> getIpV4AddressAndPort(const std::string& addrAndPort)

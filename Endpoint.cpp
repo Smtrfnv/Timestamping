@@ -15,44 +15,6 @@ namespace ts
 #define EPLOG(...) \
     TSNAMEDLOG(description.name.c_str(), __VA_ARGS__)
 
-void Endpoint::start(const SocketPair& p, Mode mode, const Params& par)
-{
-    if(mode == Mode::TX)
-    {
-        TSLOG("Starting Endpoint in TX mode");
-
-        auto l = [&](){
-
-            pthread_setname_np(pthread_self(), "TX thread"); 
-
-            Sender s(p.clientFd);
-            Sender::Params params = {};
-            params.receiveraddr = p.serveraddr;
-            params.msToSleep = par.msToSleep;
-            params.sendBufferSize = par.sendBufferSize;
-            params.mode = Sender::Mode::LargePackets;
-            s.start(params);
-        };
-        trd = std::thread(l);
-    }
-    else if(mode == Mode::RX)
-    {
-        TSLOG("Starting Endpoint in RX mode");
-
-        auto l = [&](){
-
-            pthread_setname_np(pthread_self(), "RX thread"); 
-
-            Receiver r(p.serverFd);
-            Receiver::Params params = {};
-            params.bufferCapacity = 10000;
-            r.start(params);
-        };
-        trd = std::thread(l);
-    }
-}
-
-
 EndpointNew::EndpointNew(const EndpointDescription& e): description(e)
 {
     EPLOG("c-tor");
@@ -114,21 +76,21 @@ void EndpointNew::init()
 { 
     std::unique_lock<std::mutex> lock(mutexOperational);
 
-    if(description.transport == Transport::UDP)
+    if(description.transport == Transport::DGRAM)
     {
-        initUdp();
+        initDgram();
     }
-    if(description.transport == Transport::UDP_LOCAL)
+    if(description.transport == Transport::DGRAM_LOCAL)
     {
-        initUdpLocal();
+        initDgramLocal();
     }
-    else if(description.transport == Transport::TCP)
+    else if(description.transport == Transport::STREAM)
     {
-        initTcp();
+        initStream();
     }
-    else if(description.transport == Transport::TCP_LOCAL)
+    else if(description.transport == Transport::STREAM_LOCAL)
     {
-        initTcpLocal();
+        initStreamLocal();
     }
     else
     {
@@ -140,7 +102,7 @@ void EndpointNew::init()
     cvOperational.notify_one();
 }
 
-void EndpointNew::initUdp()
+void EndpointNew::initDgram()
 {
     const int fd = createDgramSocket();
     if(fd == -1)
@@ -148,7 +110,7 @@ void EndpointNew::initUdp()
         raiseError("Failed to create socket");
     }
 
-    socket = std::make_shared<SocketWrapper>("some name", fd, Transport::UDP);
+    socket = std::make_shared<SocketWrapper>("some name", fd, Transport::DGRAM);
 
     //now need to extract address and port
     if(description.selfAddr.empty() == false) //need to do bind
@@ -173,13 +135,13 @@ void EndpointNew::initUdp()
 }
 
 
-void EndpointNew::initTcp()
+void EndpointNew::initStream()
 {
     if(description.selfAddr.empty()) //this would be a client
     {
         const int clientFd = createStreamSocket();
         
-        socket = std::make_shared<SocketWrapper>("Client_tcp", clientFd, Transport::TCP);
+        socket = std::make_shared<SocketWrapper>("Client_tcp", clientFd, Transport::STREAM);
 
         const auto peerAddr = getIpV4AddressAndPort(description.peerAddr);
         if(!peerAddr)
@@ -224,7 +186,7 @@ void EndpointNew::initTcp()
         {
             raiseError("initTcp: failed to accept connection\n");
         }
-        socket = std::make_shared<SocketWrapper>("Server_tcp", serverFd, Transport::TCP);
+        socket = std::make_shared<SocketWrapper>("Server_tcp", serverFd, Transport::STREAM);
 
         EPLOG("connection accepted");
     
@@ -261,10 +223,10 @@ void EndpointNew::processTask()
     }   
 }
 
-void EndpointNew::initUdpLocal()
+void EndpointNew::initDgramLocal()
 {
     const int fd = createDgramLocalSocket();
-    socket = std::make_shared<SocketWrapper>(description.name.c_str(), fd, Transport::UDP_LOCAL);
+    socket = std::make_shared<SocketWrapper>(description.name.c_str(), fd, Transport::DGRAM_LOCAL);
 
     if(description.selfAddr.empty() == false)
     {
@@ -281,13 +243,13 @@ void EndpointNew::initUdpLocal()
     }
 }
 
-void EndpointNew::initTcpLocal()
+void EndpointNew::initStreamLocal()
 {
     if(description.selfAddr.empty()) //this would be a client
     {
         const int fd = createStreamLocalSocket();
         
-        socket = std::make_shared<SocketWrapper>(description.name.c_str(), fd, Transport::TCP_LOCAL);
+        socket = std::make_shared<SocketWrapper>(description.name.c_str(), fd, Transport::STREAM_LOCAL);
 
         auto peerAddr = convertUnixSocketAddr(description.peerAddr);
         
@@ -329,7 +291,7 @@ void EndpointNew::initTcpLocal()
             raiseError("createStreamLocalPair: failed to accept connection\n");
         }
 
-        socket = std::make_shared<SocketWrapper>(description.name.c_str(), serverFd, Transport::TCP_LOCAL);
+        socket = std::make_shared<SocketWrapper>(description.name.c_str(), serverFd, Transport::STREAM_LOCAL);
         selfaddr = serverAddr;
         close(listenFd);
     }

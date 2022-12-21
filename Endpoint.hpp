@@ -1,7 +1,8 @@
 #pragma once
 
-#include "SocketPair.hpp"
 #include "EndpointDescription.hpp"
+
+#include "SocketWrapper.hpp"
 
 #include <thread>
 #include <mutex>
@@ -9,40 +10,11 @@
 #include <optional>
 #include <variant>
 
+#include <sys/un.h>
+#include <netinet/in.h>
+
 namespace ts
 {
-
-
-class Endpoint
-{
-
-public:
-    
-    enum class Mode
-    {
-        TX,
-        RX
-    };
-
-    struct Params //common structure to store parameter for both rx & tx
-    {
-        // TX
-        int msToSleep = 2000;
-        int sendBufferSize = 1024;
-
-        // RX
-    };
-
-    void start(const SocketPair& p, Mode mode, const Params&);
-
-    void wait() { trd.join(); }
-
-private:
-
-    std::thread trd;
-
-};
-
 
 class EndpointNew
 {
@@ -81,10 +53,10 @@ private:
 
     void routine();
     void init();
-    void initUdp();
-    void initUdpLocal();
-    void initTcp();
-    void initTcpLocal();
+    void initDgram();
+    void initDgramLocal();
+    void initStream();
+    void initStreamLocal();
 
     void processTask();
 

@@ -29,7 +29,7 @@ SocketWrapper::~SocketWrapper()
         return;
     }
     
-    if(t == Transport::TCP)
+    if(t == Transport::STREAM)
     {
         if(shutdown(fd, SHUT_RDWR) != 0)
         {

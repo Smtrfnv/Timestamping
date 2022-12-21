@@ -33,29 +33,29 @@ void registerSigintHandler()
 
 Transport getTransportType(char * str)
 {
-    if(strcmp("tcp", str) == 0)
+    if(strcmp("stream", str) == 0)
     {
-        return Transport::TCP;
+        return Transport::STREAM;
     }
-    if(strcmp("udp", str) == 0)
+    if(strcmp("dgram", str) == 0)
     {
-        return Transport::UDP;
+        return Transport::DGRAM;
     }
-    if(strcmp("tcp_local", str) == 0)
+    if(strcmp("stream_local", str) == 0)
     {
-        return Transport::TCP_LOCAL;
+        return Transport::STREAM_LOCAL;
     }
-    if(strcmp("udp_local", str) == 0)
+    if(strcmp("dgram_local", str) == 0)
     {
-        return Transport::UDP_LOCAL;
+        return Transport::DGRAM_LOCAL;
     }
     raiseError("Unsupported transport type");
-    return Transport::TCP;
+    return Transport::DGRAM;
 }
 
 struct Params
 {
-    Transport transport = Transport::UDP;
+    Transport transport = Transport::DGRAM;
     bool enableLog = false;
     int timeToSleepMs = 2000;
 };
@@ -108,7 +108,7 @@ void udpScenario()
     EndpointDescription recvD;
     recvD.name = "endpoint udp rx";
     recvD.selfAddr = "127.0.0.1:2552";
-    recvD.transport = Transport::UDP;
+    recvD.transport = Transport::DGRAM;
 
     EndpointNew rxEndp(recvD);
 
@@ -116,7 +116,7 @@ void udpScenario()
     
     EndpointDescription sendD;
     sendD.name = "endpoint udp tx";
-    sendD.transport = Transport::UDP;
+    sendD.transport = Transport::DGRAM;
 
     EndpointNew txEndp(sendD);
 
@@ -153,14 +153,14 @@ void tcpScenario()
     EndpointDescription recvD;
     recvD.name = "endpoint tcp rx";
     recvD.selfAddr = servAddr;
-    recvD.transport = Transport::TCP;
+    recvD.transport = Transport::STREAM;
 
     EndpointNew rxEndp(recvD);
 
     EndpointDescription sendD;
     sendD.name = "endpoint tcp tx";
     sendD.peerAddr = servAddr;
-    sendD.transport = Transport::TCP;
+    sendD.transport = Transport::STREAM;
 
     EndpointNew txEndp(sendD);
 
@@ -198,14 +198,14 @@ void tcpLocalScenario()
     EndpointDescription recvD;
     recvD.name = "endpoint tcp local rx";
     recvD.selfAddr = servAddr;
-    recvD.transport = Transport::TCP_LOCAL;
+    recvD.transport = Transport::STREAM_LOCAL;
 
     EndpointNew rxEndp(recvD);
 
     EndpointDescription sendD;
     sendD.name = "endpoint tcp local tx";
     sendD.peerAddr = servAddr;
-    sendD.transport = Transport::TCP_LOCAL;
+    sendD.transport = Transport::STREAM_LOCAL;
 
     EndpointNew txEndp(sendD);
 
@@ -244,7 +244,7 @@ void udpLocalScenario()
     EndpointDescription recvD;
     recvD.name = "endpoint udp local rx";
     recvD.selfAddr = "udpLocal";
-    recvD.transport = Transport::UDP_LOCAL;
+    recvD.transport = Transport::DGRAM_LOCAL;
 
     EndpointNew rxEndp(recvD);
 
@@ -252,7 +252,7 @@ void udpLocalScenario()
     
     EndpointDescription sendD;
     sendD.name = "endpoint udp local tx";
-    sendD.transport = Transport::UDP_LOCAL;
+    sendD.transport = Transport::DGRAM_LOCAL;
 
     EndpointNew txEndp(sendD);
 
@@ -292,49 +292,13 @@ int main(int argc, char* argv[])
 
     Params param = parseOptions(argc, argv);
 
-
     if(param.enableLog) Logger::enable();
     else Logger::disable();
-
-    TSLOG("Hello from logger");
-#if 0
-    bool udpSpamMode = false;
-
-    registerSigintHandler();
-
-    const SocketPair p = createSocketPair(param.transport);
-
-    Endpoint::Params epPar;
-    epPar.msToSleep = param.timeToSleepMs;
-
-    if(udpSpamMode == false)
-    {
-        Endpoint tx;
-        Endpoint rx;
-
-    
-        rx.start(p, Endpoint::Mode::RX, epPar);
-        tx.start(p, Endpoint::Mode::TX, epPar);
-
-        rx.wait();
-        tx.wait();
-    }
-    else
-    {
-        Endpoint tx;
-        tx.start(p, Endpoint::Mode::TX, epPar);
-        tx.wait();
-    }
-#endif
-
-    // createSocketPair(Transport::UDP);
 
     // udpScenario();
     // tcpScenario();
     // udpLocalScenario();
     tcpLocalScenario();
-
-
 
     TSLOG("DONE");
 }

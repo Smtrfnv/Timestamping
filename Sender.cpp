@@ -157,15 +157,15 @@ void Sender::performSend(int packetNum, const Params& p)
     
     int n = 0;
     Transport t = socket->getTransport();
-    if(t == Transport::TCP || t == Transport::TCP_LOCAL)
+    if(t == Transport::STREAM || t == Transport::STREAM_LOCAL)
     {
         n = send(socket->getFd(), sendBuf.data(), sendLen, 0);
     }
-    else if(t == Transport::UDP)
+    else if(t == Transport::DGRAM)
     {
         n = sendto(socket->getFd(), sendBuf.data(), sendLen, 0, (sockaddr*) &std::get<sockaddr_in>(p.receiveraddr), sizeof(sockaddr_in));
     }
-    else if(t == Transport::UDP_LOCAL)
+    else if(t == Transport::DGRAM_LOCAL)
     {
         n = sendto(socket->getFd(), sendBuf.data(), sendLen, 0, (sockaddr*)  &std::get<sockaddr_un>(p.receiveraddr), sizeof(sockaddr_un));
     }

@@ -82,6 +82,7 @@ private:
     void routine();
     void init();
     void initUdp();
+    void initUdpLocal();
     void initTcp();
 
     void processTask();

@@ -1,5 +1,7 @@
 #include "SocketWrapper.hpp"
 
+#include "Logger.hpp"
+
 #include <sys/socket.h>
 #include <iostream>
 #include <unistd.h>
@@ -20,16 +22,20 @@ SocketWrapper::SocketWrapper(const char* _name, int _fd, Transport _t): name(_na
 
 SocketWrapper::~SocketWrapper()
 {
+    TSLOG("socket %s d-tor, fd = %d", name, fd);
+
     if(fd == 0)
+    {
         return;
+    }
     
     if(t == Transport::TCP)
     {
         if(shutdown(fd, SHUT_RDWR) != 0)
         {
-            std::cerr << "Failed to shutdown " << name << "socket\n";
+            TSLOG("socket %s, failed to shutdown", name);
         }
-        std::cout << "Shutdown " << name << " socket" << std::endl;
+        TSLOG("socket %s, done shutdown", name);
 
         char buf[10];
         int n = 0;
@@ -41,9 +47,9 @@ SocketWrapper::~SocketWrapper()
 
     if(close(fd) != 0)
     {
-        std::cerr << "Failed to close " << name << "socket\n";
+        TSLOG("socket %s, failed to close", name);
     }
-    std::cout << "Closed  " << name << " socket" << std::endl;
+    TSLOG("socket %s, closed", name);
 }
 
 }

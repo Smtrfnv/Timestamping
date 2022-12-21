@@ -20,6 +20,7 @@ void closeSockPair(const SocketPair& p);
 int createSocket(int family, int type, int protocol);
 
 std::optional<sockaddr_in> getIpV4AddressAndPort(const std::string& addrAndPort);
+sockaddr_un convertUnixSocketAddr(const std::string& addr);
 // addrAndPort is a string of format "127.0.0.1:8080"
 
 }

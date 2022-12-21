@@ -177,5 +177,13 @@ std::optional<sockaddr_in> getIpV4AddressAndPort(const std::string& addrAndPort)
 
 }
 
+sockaddr_un convertUnixSocketAddr(const std::string& addr)
+{
+    sockaddr_un res = {};
+    res.sun_family = AF_UNIX;
+    strncpy(res.sun_path, addr.c_str(), sizeof(res.sun_path));
+    return res;
+}
+
 
 }

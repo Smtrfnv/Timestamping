@@ -165,9 +165,75 @@ void tcpScenario()
     EndpointNew txEndp(sendD);
 
     rxEndp.start();
+
     txEndp.start();
     rxEndp.waitReadtyToOperate();
     txEndp.waitReadtyToOperate();
+
+
+
+    {
+        EndpointNew::Task rxTask = {};
+        rxTask.mode = EndpointNew::Mode::RX;
+        rxEndp.startTask(rxTask);
+    }
+
+    {
+        EndpointNew::Task txTask = {};
+        txTask.mode = EndpointNew::Mode::TX;
+        txTask.msToSleep = 2000;
+        txTask.sendBufferSize = 1024;
+        txTask.targetaddr = rxEndp.getAddr();
+
+        txEndp.startTask(txTask);
+    }
+
+    txEndp.wait();
+    rxEndp.wait();
+}
+
+void udpLocalScenario()
+{
+    EndpointDescription recvD;
+    recvD.name = "endpoint udp local rx";
+    recvD.selfAddr = "udpLocal";
+    recvD.transport = Transport::UDP_LOCAL;
+
+    EndpointNew rxEndp(recvD);
+
+
+    
+    EndpointDescription sendD;
+    sendD.name = "endpoint udp local tx";
+    sendD.transport = Transport::UDP_LOCAL;
+
+    EndpointNew txEndp(sendD);
+
+
+    rxEndp.start();
+    txEndp.start();
+    rxEndp.waitReadtyToOperate();
+    txEndp.waitReadtyToOperate();
+
+
+    {
+        EndpointNew::Task rxTask = {};
+        rxTask.mode = EndpointNew::Mode::RX;
+        rxEndp.startTask(rxTask);
+    }
+
+    {
+        EndpointNew::Task txTask = {};
+        txTask.mode = EndpointNew::Mode::TX;
+        txTask.msToSleep = 2000;
+        txTask.sendBufferSize = 1024;
+        txTask.targetaddr = rxEndp.getAddr();
+
+        txEndp.startTask(txTask);
+    }
+
+    txEndp.wait();
+    rxEndp.wait();    
 }
 
 } //namespace ts
@@ -217,7 +283,8 @@ int main(int argc, char* argv[])
     // createSocketPair(Transport::UDP);
 
     // udpScenario();
-    tcpScenario();
+    // tcpScenario();
+    udpLocalScenario();
 
 
 

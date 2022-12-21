@@ -67,7 +67,7 @@ void Sender::incrementalSend(const Params& p)
                     // consume timer and do send
                     consumeTimer();
                     performSend(pktNum, p);
-                    recvCtrlMessageTx(socket->getFd());
+                    // recvCtrlMessageTx(socket->getFd());
                     ++pktNum;
                 }
                 else if(epevents[i].data.fd == socket->getFd())

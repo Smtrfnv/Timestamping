@@ -61,6 +61,10 @@ EndpointNew::EndpointNew(const EndpointDescription& e): description(e)
 
 EndpointNew::~EndpointNew()
 {
+    if(trd.joinable())
+    {
+        EPLOG("ERROR: d-to called when the thread is still joinable");
+    }
     EPLOG("d-tor");
 }
 
@@ -114,6 +118,10 @@ void EndpointNew::init()
     {
         initUdp();
     }
+    if(description.transport == Transport::UDP_LOCAL)
+    {
+        initUdpLocal();
+    }
     else if(description.transport == Transport::TCP)
     {
         initTcp();
@@ -124,6 +132,7 @@ void EndpointNew::init()
     }
 
     readyToOperate = true;
+    EPLOG("init done");
     cvOperational.notify_one();
 }
 
@@ -246,6 +255,26 @@ void EndpointNew::processTask()
     {
         raiseError("Unsupported mode");
     }   
+}
+
+void EndpointNew::initUdpLocal()
+{
+    const int fd = createDgramLocalSocket();
+    socket = std::make_shared<SocketWrapper>(description.name.c_str(), fd, Transport::UDP_LOCAL);
+
+    if(description.selfAddr.empty() == false)
+    {
+        sockaddr_un sockaddrUn = convertUnixSocketAddr(description.selfAddr);
+        
+        unlink(description.selfAddr.c_str());
+
+        int res = bind(socket->getFd(), (sockaddr*) &sockaddrUn, sizeof(sockaddr));
+        if(res  != 0)
+        {
+            raiseError("Server_udp_local: failed to bind");
+        }
+        selfaddr = sockaddrUn;
+    }
 }
 
 }

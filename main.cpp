@@ -10,8 +10,8 @@
 
 #include "util.hpp"
 #include "Logger.hpp"
-
 #include "Endpoint.hpp"
+#include "ConfigParser.hpp"
 
 namespace ts
 {
@@ -298,7 +298,31 @@ int main(int argc, char* argv[])
     // udpScenario();
     // tcpScenario();
     // udpLocalScenario();
-    tcpLocalScenario();
+    // tcpLocalScenario();
+
+    ConfigParser parser;
+    const auto descriptions = parser.parseConfigFile("../config.json");
+
+    std::vector<std::shared_ptr<EndpointNew>> endpoints;
+    for(const auto& d: descriptions)
+    {
+        std::shared_ptr<EndpointNew> ep = std::make_shared<EndpointNew>(d);
+        endpoints.emplace_back(std::move(ep));
+    }
+
+    for(auto& e: endpoints)
+    {
+        e->start();
+    }
+
+    for(auto& e: endpoints)
+    {
+        e->waitReadtyToOperate();
+    }
+
+
+
+
 
     TSLOG("DONE");
 }

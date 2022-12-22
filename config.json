@@ -1,0 +1,29 @@
+{
+    "Endpoints" :
+    [
+        {
+            "name": "dgram tx",
+            "transport": "dgram",
+            "peerAddress": "127.0.0.1:2552",
+            "task" :
+            [
+                {
+                    "mode" : "tx",
+                    "msToSleep" : 2000,
+                    "sndBufSize": 1024
+                }
+            ]
+        },
+        {
+            "name": "dgram rx",
+            "transport": "dgram",
+            "selfAddr": "127.0.0.1:2552",
+            "task" :
+            [
+                {
+                    "mode" : "rx"
+                }
+            ]
+        }
+    ]
+}

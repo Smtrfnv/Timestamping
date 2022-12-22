@@ -16,9 +16,11 @@ add_library(app
     Receiver.cpp 
     ctrlMsgUtils.cpp 
     Endpoint.cpp
-    EndpointFactory.cpp)
+    EndpointFactory.cpp
+    ConfigParser.cpp)
 
 target_include_directories(app PUBLIC ${CMAKE_CURRENT_SOURCE_DIR})
+target_include_directories(app PUBLIC ${CMAKE_CURRENT_SOURCE_DIR}/../rapidjson/include/) #TODO: replace hardcoded path, also: hide dependancy
 
 add_executable(ts main.cpp)
 target_link_libraries(ts app)

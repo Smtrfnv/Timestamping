@@ -3,6 +3,7 @@
 #include "EndpointDescription.hpp"
 
 #include "SocketWrapper.hpp"
+#include "EndpointTask.hpp"
 
 #include <thread>
 #include <mutex>
@@ -21,30 +22,13 @@ class EndpointNew
 
 public:
 
-    enum class Mode
-    {
-        TX,
-        RX
-    };
-
-    struct Task //common structure to store parameter for both rx & tx
-    {
-        Mode mode;
-
-        // TX
-        int msToSleep = 2000;
-        int sendBufferSize = 1024;
-        std::variant<sockaddr_in, sockaddr_un> targetaddr;
-
-        // RX
-    };
-
     EndpointNew(const EndpointDescription&);
     ~EndpointNew();
 
     void start();
     void waitReadtyToOperate();
     void startTask(const Task&);
+    void startTask();
     void wait() { trd.join(); }    
 
     std::variant<sockaddr_in, sockaddr_un> getAddr() const { return selfaddr; }

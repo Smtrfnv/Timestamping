@@ -77,10 +77,13 @@ std::vector<EndpointDescription> ConfigParser::parseConfigFile(const char* fname
 
 bool ConfigParser::parseEndpoint(EndpointDescription& endpoint, const rapidjson::Value& v)
 {
+    using namespace rapidjson;
+
     const char* NAME = "name";
     const char* TRANSPORT = "transport";
     const char* SELFADDR = "selfAddr";
     const char* PEERADDR = "peerAddr";
+    const char* TASK = "task";
 
     endpoint = {};
 
@@ -106,6 +109,66 @@ bool ConfigParser::parseEndpoint(EndpointDescription& endpoint, const rapidjson:
     {
         endpoint.peerAddr = v[PEERADDR].GetString();
     }
+
+    if(!v.HasMember(TASK))
+    {
+        TSLOG("No %s member", TASK);
+        return false;        
+    }
+
+    const Value& tasks = v[TASK];
+    if(!tasks.IsArray())
+    {
+        TSLOG("%s is not array", TASK);
+        return false; 
+    }
+    if(tasks.Size() != 1)
+    {
+        TSLOG("Wrong number of configured %s", TASK);
+        return false;
+    }
+
+    if(!parseTask(endpoint.task, tasks[0]))
+    {
+        return false;
+    }
+
+    return true;
+}
+
+bool ConfigParser::parseTask(Task& task, const rapidjson::Value& v)
+{
+    task = {};
+
+    const char* MODE = "mode";
+    const char* MSTOSLEEP = "msToSleep";
+    const char* SNDBUFSIZE = "sndBufSize";
+    const char* TARGETADDR = "targetAddr";
+    
+    if(!v.HasMember(MODE))
+    {
+        TSLOG("No %s member", MODE);
+        return false;
+    }
+
+    const std::string mode = v[MODE].GetString();
+    task.mode = stringToMode(mode); //todo: catch exception
+
+    if(v.HasMember(MSTOSLEEP))
+    {
+        task.msToSleep = v[MSTOSLEEP].GetInt();
+    }
+
+    if(v.HasMember(SNDBUFSIZE))
+    {
+        task.sendBufferSize = v[SNDBUFSIZE].GetInt();
+    }
+
+    if(v.HasMember(TARGETADDR))
+    {
+        task.targetaddr = v[TARGETADDR].GetString();
+    }
+
     return true;
 }
 

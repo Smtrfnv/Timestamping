@@ -4,13 +4,14 @@
         {
             "name": "dgram tx",
             "transport": "dgram",
-            "peerAddress": "127.0.0.1:2552",
+            "peerAddr": "127.0.0.1:2552",
             "task" :
             [
                 {
                     "mode" : "tx",
                     "msToSleep" : 2000,
-                    "sndBufSize": 1024
+                    "sndBufSize": 1024,
+                    "targetAddr": "127.0.0.1:2552"
                 }
             ]
         },

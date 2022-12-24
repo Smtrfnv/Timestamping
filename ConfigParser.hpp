@@ -1,6 +1,7 @@
 #pragma once
 
 #include "EndpointDescription.hpp"
+#include "EndpointTask.hpp"
 #include <vector>
 
 #include <rapidjson/document.h>
@@ -18,6 +19,7 @@ public:
 private:
 
     bool parseEndpoint(EndpointDescription& endpoint, const rapidjson::Value& v);
+    bool parseTask(Task& task, const rapidjson::Value& v);
 
 };
 

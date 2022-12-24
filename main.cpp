@@ -103,186 +103,6 @@ Params parseOptions(int argc, char* argv[])
 }
 
 
-void udpScenario()
-{
-    EndpointDescription recvD;
-    recvD.name = "endpoint udp rx";
-    recvD.selfAddr = "127.0.0.1:2552";
-    recvD.transport = Transport::DGRAM;
-
-    EndpointNew rxEndp(recvD);
-
-
-    
-    EndpointDescription sendD;
-    sendD.name = "endpoint udp tx";
-    sendD.transport = Transport::DGRAM;
-
-    EndpointNew txEndp(sendD);
-
-
-    rxEndp.start();
-    txEndp.start();
-    rxEndp.waitReadtyToOperate();
-    txEndp.waitReadtyToOperate();
-
-
-    {
-        EndpointNew::Task rxTask = {};
-        rxTask.mode = EndpointNew::Mode::RX;
-        rxEndp.startTask(rxTask);
-    }
-
-    {
-        EndpointNew::Task txTask = {};
-        txTask.mode = EndpointNew::Mode::TX;
-        txTask.msToSleep = 2000;
-        txTask.sendBufferSize = 1024;
-        txTask.targetaddr = rxEndp.getAddr();
-
-        txEndp.startTask(txTask);
-    }
-
-    txEndp.wait();
-    rxEndp.wait();
-}
-
-void tcpScenario()
-{
-    std::string servAddr = "127.0.0.1:2553";
-    EndpointDescription recvD;
-    recvD.name = "endpoint tcp rx";
-    recvD.selfAddr = servAddr;
-    recvD.transport = Transport::STREAM;
-
-    EndpointNew rxEndp(recvD);
-
-    EndpointDescription sendD;
-    sendD.name = "endpoint tcp tx";
-    sendD.peerAddr = servAddr;
-    sendD.transport = Transport::STREAM;
-
-    EndpointNew txEndp(sendD);
-
-    rxEndp.start();
-
-    txEndp.start();
-    rxEndp.waitReadtyToOperate();
-    txEndp.waitReadtyToOperate();
-
-
-
-    {
-        EndpointNew::Task rxTask = {};
-        rxTask.mode = EndpointNew::Mode::RX;
-        rxEndp.startTask(rxTask);
-    }
-
-    {
-        EndpointNew::Task txTask = {};
-        txTask.mode = EndpointNew::Mode::TX;
-        txTask.msToSleep = 2000;
-        txTask.sendBufferSize = 1024;
-        txTask.targetaddr = rxEndp.getAddr();
-
-        txEndp.startTask(txTask);
-    }
-
-    txEndp.wait();
-    rxEndp.wait();
-}
-
-void tcpLocalScenario()
-{
-    std::string servAddr = "tcpLocal";
-    EndpointDescription recvD;
-    recvD.name = "endpoint tcp local rx";
-    recvD.selfAddr = servAddr;
-    recvD.transport = Transport::STREAM_LOCAL;
-
-    EndpointNew rxEndp(recvD);
-
-    EndpointDescription sendD;
-    sendD.name = "endpoint tcp local tx";
-    sendD.peerAddr = servAddr;
-    sendD.transport = Transport::STREAM_LOCAL;
-
-    EndpointNew txEndp(sendD);
-
-    rxEndp.start();
-
-    std::this_thread::sleep_for(std::chrono::seconds(2));
-
-    txEndp.start();
-    rxEndp.waitReadtyToOperate();
-    txEndp.waitReadtyToOperate();
-
-
-
-    {
-        EndpointNew::Task rxTask = {};
-        rxTask.mode = EndpointNew::Mode::RX;
-        rxEndp.startTask(rxTask);
-    }
-
-    {
-        EndpointNew::Task txTask = {};
-        txTask.mode = EndpointNew::Mode::TX;
-        txTask.msToSleep = 2000;
-        txTask.sendBufferSize = 1024;
-        txTask.targetaddr = rxEndp.getAddr();
-
-        txEndp.startTask(txTask);
-    }
-
-    txEndp.wait();
-    rxEndp.wait();
-}
-
-void udpLocalScenario()
-{
-    EndpointDescription recvD;
-    recvD.name = "endpoint udp local rx";
-    recvD.selfAddr = "udpLocal";
-    recvD.transport = Transport::DGRAM_LOCAL;
-
-    EndpointNew rxEndp(recvD);
-
-
-    
-    EndpointDescription sendD;
-    sendD.name = "endpoint udp local tx";
-    sendD.transport = Transport::DGRAM_LOCAL;
-
-    EndpointNew txEndp(sendD);
-
-
-    rxEndp.start();
-    txEndp.start();
-    rxEndp.waitReadtyToOperate();
-    txEndp.waitReadtyToOperate();
-
-
-    {
-        EndpointNew::Task rxTask = {};
-        rxTask.mode = EndpointNew::Mode::RX;
-        rxEndp.startTask(rxTask);
-    }
-
-    {
-        EndpointNew::Task txTask = {};
-        txTask.mode = EndpointNew::Mode::TX;
-        txTask.msToSleep = 2000;
-        txTask.sendBufferSize = 1024;
-        txTask.targetaddr = rxEndp.getAddr();
-
-        txEndp.startTask(txTask);
-    }
-
-    txEndp.wait();
-    rxEndp.wait();    
-}
-
 } //namespace ts
 
 
@@ -319,6 +139,18 @@ int main(int argc, char* argv[])
     {
         e->waitReadtyToOperate();
     }
+
+    for(auto& e: endpoints)
+    {
+        e->startTask();
+    }
+
+    for(auto& e: endpoints)
+    {
+        e->wait();
+    }
+
+
 
 
 

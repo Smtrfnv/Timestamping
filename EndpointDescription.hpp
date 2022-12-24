@@ -1,6 +1,7 @@
 #pragma once
 
 #include "Transport.hpp"
+#include "EndpointTask.hpp"
 
 #include <string>
 
@@ -13,6 +14,8 @@ struct EndpointDescription
     Transport transport;
     std::string selfAddr;
     std::string peerAddr; // valid only for connection protocols
+
+    Task task;
 };
 
 }

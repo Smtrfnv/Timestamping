@@ -72,6 +72,12 @@ void EndpointNew::startTask(const Task& t)
     cvTask.notify_one();
 }
 
+void EndpointNew::startTask()
+{
+    startTask(description.task);
+}
+
+
 void EndpointNew::init()
 { 
     std::unique_lock<std::mutex> lock(mutexOperational);
@@ -80,7 +86,7 @@ void EndpointNew::init()
     {
         initDgram();
     }
-    if(description.transport == Transport::DGRAM_LOCAL)
+    else if(description.transport == Transport::DGRAM_LOCAL)
     {
         initDgramLocal();
     }
@@ -94,7 +100,7 @@ void EndpointNew::init()
     }
     else
     {
-        raiseError("Unsupported transport");
+        raiseError("Init: unsupported transport");
     }
 
     readyToOperate = true;
@@ -202,7 +208,21 @@ void EndpointNew::processTask()
 
         Sender s(socket);
         Sender::Params params = {};
-        params.receiveraddr = task->targetaddr;
+
+        if(description.transport == Transport::DGRAM)
+        {
+            const std::optional<sockaddr_in> addr = getIpV4AddressAndPort(task->targetaddr);
+            if(!addr)
+            {
+                throw Exception("failed to convert address when creating sender");
+            }
+            params.receiveraddr = *addr;
+        }
+        else if(description.transport == Transport::DGRAM_LOCAL)
+        {
+            params.receiveraddr = convertUnixSocketAddr(task->targetaddr);
+        }
+
         params.msToSleep = task->msToSleep;
         params.sendBufferSize = task->sendBufferSize;
         params.mode = Sender::Mode::LargePackets;

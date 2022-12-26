@@ -84,23 +84,19 @@ void processCtrlMessage(cmsghdr &chdr)
     }
 }
 
-void recvCtrlMessageTx(int sockFd)
-{
-    recvCtrlMessageTx(sockFd, nullptr, 0);
-}
 
-void recvCtrlMessageTx(int sockFd, uint8_t* buf, size_t capacity)
+void recvCtrlMessageTx(int sockFd, uint8_t* ctrlMsgBuf, const size_t capacity)
 {
-    iovec io;
-    io.iov_base = buf;
-    io.iov_len = capacity;
+    // iovec io;
+    // io.iov_base = buf;
+    // io.iov_len = capacity;
 
-    constexpr size_t buffsize = CMSG_SPACE(sizeof(scm_timestamping) * 6); //TODO
-    union 
-    {
-        char ctrlBuf[buffsize];
-        cmsghdr chdr;
-    } u;
+    // constexpr size_t buffsize = CMSG_SPACE(sizeof(scm_timestamping) * 6); //TODO
+    // union 
+    // {
+    //     char ctrlBuf[buffsize];
+    //     cmsghdr chdr;
+    // } u;
 
     msghdr msg = {};
     msg.msg_name = 0;
@@ -109,18 +105,12 @@ void recvCtrlMessageTx(int sockFd, uint8_t* buf, size_t capacity)
     msg.msg_iov = /*&io*/ 0;
     msg.msg_iovlen = /*1*/ 0;
 
-    msg.msg_control = u.ctrlBuf;
-    msg.msg_controllen = buffsize;
+    msg.msg_control = ctrlMsgBuf;
+    msg.msg_controllen = capacity;
 
     int res = recvmsg(sockFd, &msg, MSG_ERRQUEUE);
     
-    TSLOG("recvmsg result: %d, flags = %d, iov_len is %lu", res, msg.msg_flags, io.iov_len);
-
-    // for(int i = 0; i < 10; ++i)
-    // {
-    //     std::cout << (int32_t)(buf[i]);
-    // }
-    // std::cout << std::endl;
+    TSLOG("recvmsg result: %d, flags = %d", res, msg.msg_flags);
 
     if(res == -1)
     {
@@ -129,10 +119,31 @@ void recvCtrlMessageTx(int sockFd, uint8_t* buf, size_t capacity)
 
     if(res != -1)
     {
+        int ctr = 0;
         for(cmsghdr *hdr = CMSG_FIRSTHDR(&msg); hdr != 0; hdr = CMSG_NXTHDR(&msg, hdr))
         {
             processCtrlMessage(*hdr);
+            ++ctr;
         }
+        TSLOG("%d control messages received", ctr);
+    }
+    {
+        msghdr msg = {};
+        msg.msg_name = 0;
+        msg.msg_namelen = 0;
+
+        msg.msg_iov = /*&io*/ 0;
+        msg.msg_iovlen = /*1*/ 0;
+
+        msg.msg_control = ctrlMsgBuf;
+        msg.msg_controllen = capacity;
+
+        int res = recvmsg(sockFd, &msg, MSG_ERRQUEUE);
+        if(res != -1)
+        {
+            THROWEXCEPTION("MSGERRQUEUE is not empty, res is %d", res);
+        }
+
     }
 }
 

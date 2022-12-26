@@ -4,9 +4,6 @@
 #include "dgram.hpp"
 #include "Logger.hpp"
 
-#include <iostream>
-#include <cstring>
-#include <cstdarg>
 #include <vector>
 
 #include <sys/socket.h>
@@ -16,22 +13,6 @@
 
 namespace ts
 {
-
-void raiseError(const char* format, ...)
-{
-    const size_t CAPACITY = 1024;
-    char buf[CAPACITY];
-
-    va_list args;
-    va_start(args, format);
-
-    vsnprintf(buf, CAPACITY, format, args);
-
-    va_end(args);
-
-    std::cerr << buf << "\n last error = " << strerror(errno) << std::endl;
-    exit(1);
-}
 
 int createSocket(int family, int type, int protocol)
 {
@@ -44,21 +25,35 @@ int createSocket(int family, int type, int protocol)
         return -1;
     }
 
+    int bufSize = 0;
+    socklen_t len = sizeof(bufSize);
+
+    if(getsockopt(fd,SOL_SOCKET, SO_SNDBUF, &bufSize, &len) == 0)
+    {
+        TSLOG("send buffer size is %d", bufSize);
+    }
     
+    bufSize = 0;
+    len = sizeof(bufSize);
+
+    if(getsockopt(fd,SOL_SOCKET, SO_RCVBUF, &bufSize, &len) == 0)
+    {
+        TSLOG("recv buffer size is %d", bufSize);
+    }
+
+
+
+    return fd;
+}
+
+bool setOptions(int fd, int family, const SocketOptions& opts)
+{
+    //TODO: update the whole logic so that timestamping and timestampns are possible to set
     uint32_t val = 1;
 
     if(family == AF_INET)
     {
-        val =  
-            // SOF_TIMESTAMPING_TX_HARDWARE
-              SOF_TIMESTAMPING_TX_SOFTWARE |
-
-            //  SOF_TIMESTAMPING_RX_SOFTWARE |
-            // | SOF_TIMESTAMPING_RX_HARDWARE |
-
-            SOF_TIMESTAMPING_SOFTWARE 
-            // | SOF_TIMESTAMPING_RAW_HARDWARE
-            ;
+        val = opts.get();
     }
     
     int res = setsockopt(fd, SOL_SOCKET, (family == AF_INET) ? SO_TIMESTAMPING : SO_TIMESTAMPNS, &val, sizeof(val));
@@ -66,20 +61,9 @@ int createSocket(int family, int type, int protocol)
     if(res != 0)
     {
         TSLOG("Failed to setsockopt");
-        close(fd);
-        return -1;
+        return false;
     }
-
-    int v = 1;
-    res = setsockopt(fd, SOL_SOCKET, SO_REUSEADDR, &v, sizeof(v));
-    if(res != 0)
-    {
-        raiseError("Failed to setsockopt");
-        close(fd);
-        return -1;
-    }
-
-    return fd;
+    return true;
 }
 
 

@@ -3,11 +3,13 @@
 #include "Logger.hpp"
 #include "ctrlMsgUtils.hpp"
 #include "util.hpp"
+#include "Exception.hpp"
 
 #include <stdio.h>
 #include <cstring>
 #include <chrono>
 #include <thread>
+#include <cstdlib>
 
 #include <sys/epoll.h>
 #include <sys/socket.h>
@@ -17,8 +19,10 @@
 namespace ts
 {
 
-Sender::Sender(const std::shared_ptr<SocketWrapper>& s) : socket(s), sendBuf(), epollFd(0), timerFd(0)
-{}
+Sender::Sender(const std::shared_ptr<SocketWrapper>& s) : socket(s), sendBuf(), ctrlMsgBuf(0), ctrlMsgBufSize(1024 * 1024 * 1024), epollFd(0), timerFd(0)
+{
+    ctrlMsgBuf = static_cast<uint8_t*>(std::aligned_alloc(alignof(cmsghdr), ctrlMsgBufSize));
+}
 
 Sender::~Sender()
 {
@@ -30,6 +34,7 @@ Sender::~Sender()
     {
         close(epollFd);
     }
+    delete[] ctrlMsgBuf;
 }
 
 void Sender::start(const Params& p)
@@ -55,7 +60,7 @@ void Sender::incrementalSend(const Params& p)
             const int numEvents = epoll_wait(epollFd, epevents, MAX_EVENTS, -1);
             if(numEvents == -1)
             {
-                raiseError("epoll_wait error %d : %s", numEvents, strerror(errno));
+                THROWEXCEPTION("epoll_wait error %d", numEvents);
             }
 
             TSLOG("epoll_wait result: %d", numEvents);
@@ -73,11 +78,11 @@ void Sender::incrementalSend(const Params& p)
                 else if(epevents[i].data.fd == socket->getFd())
                 {
                     //read msgerror queue
-                    recvCtrlMessageTx(socket->getFd());
+                    recvCtrlMessageTx(socket->getFd(), ctrlMsgBuf, ctrlMsgBufSize);
                 }
                 else
                 {
-                    raiseError("Incorrect epoll event received");
+                    THROWEXCEPTION("Incorrect epoll event received");
                 }
             }
         }
@@ -85,7 +90,7 @@ void Sender::incrementalSend(const Params& p)
         {
             //special mode - infinite loop without polling
             performSend(pktNum, p);
-            recvCtrlMessageTx(socket->getFd());
+            recvCtrlMessageTx(socket->getFd(), ctrlMsgBuf, ctrlMsgBufSize);
             ++pktNum;
         }
     }
@@ -96,13 +101,13 @@ void Sender::createEpollAndTimer(const Params& p)
     epollFd = epoll_create1(0);
     if(epollFd == -1)
     {
-        raiseError("Failed to create epoll instance");
+        THROWEXCEPTION("Failed to create epoll instance");
     }
     
     timerFd = timerfd_create(CLOCK_MONOTONIC, 0);
     if(timerFd == -1)
     {
-        raiseError("Failed to create timerFd instance");
+        THROWEXCEPTION("Failed to create timerFd instance");
     }
     itimerspec timerspec = {};
     timerspec.it_interval.tv_sec = p.msToSleep / 1000;
@@ -112,7 +117,7 @@ void Sender::createEpollAndTimer(const Params& p)
 
     if(timerfd_settime(timerFd, 0, &timerspec, 0) != 0)
     {
-        raiseError("Failed to start timer");
+        THROWEXCEPTION("Failed to start timer");
     }
 
     {
@@ -121,17 +126,17 @@ void Sender::createEpollAndTimer(const Params& p)
         epevent.data.fd = timerFd;
         if(epoll_ctl(epollFd, EPOLL_CTL_ADD, timerFd, &epevent) != 0)
         {
-            raiseError("Failed to add timerFd to epoll interest list");
+            THROWEXCEPTION("Failed to add timerFd to epoll interest list");
         }
     }
 
     {
         epoll_event epevent = {};
-        epevent.events = EPOLLERR;
+        // epevent.events = EPOLLERR;
         epevent.data.fd = socket->getFd();
         if(epoll_ctl(epollFd, EPOLL_CTL_ADD, socket->getFd(), &epevent) != 0)
         {
-            raiseError("Failed to add sockFd to epoll interest list");
+            THROWEXCEPTION("Failed to add sockFd to epoll interest list");
         }
     }
 }
@@ -142,7 +147,7 @@ void Sender::consumeTimer() const
     int res = read(timerFd, &expired, sizeof(expired));
     if(res == -1)
     {
-        raiseError("Failed to read from timer");
+        THROWEXCEPTION("Failed to read from timer");
     }
     TSLOG("Timer expired %d times", expired);
 }

@@ -9,6 +9,9 @@ namespace ts
 class Logger
 {
 public:
+
+    Logger() = delete;
+
     static void enable() { enabled = true; }
     static void disable() {enabled = false; }
 

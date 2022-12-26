@@ -20,6 +20,7 @@ private:
 
     bool parseEndpoint(EndpointDescription& endpoint, const rapidjson::Value& v);
     bool parseTask(Task& task, const rapidjson::Value& v);
+    bool parseSockopts(SocketOptions& opts, const rapidjson::Value& v);
 
 };
 

@@ -2,7 +2,7 @@
     "Endpoints" :
     [
         {
-            "name": "dgram tx",
+            "name": "endp tx",
             "transport": "dgram",
             "peerAddr": "127.0.0.1:2552",
             "task" :
@@ -10,19 +10,21 @@
                 {
                     "mode" : "tx",
                     "msToSleep" : 2000,
-                    "sndBufSize": 1024,
+                    "packetSize": 65507,
                     "targetAddr": "127.0.0.1:2552"
                 }
-            ]
+            ],
+            "sockopts" : ["SOF_TIMESTAMPING_TX_SOFTWARE", "SOF_TIMESTAMPING_SOFTWARE", "SOF_TIMESTAMPING_OPT_ID"]
         },
         {
-            "name": "dgram rx",
+            "name": "endp rx",
             "transport": "dgram",
             "selfAddr": "127.0.0.1:2552",
             "task" :
             [
                 {
-                    "mode" : "rx"
+                    "mode" : "rx",
+                    "recvBufSize" : 100000
                 }
             ]
         }

@@ -50,6 +50,8 @@ private:
     
     std::shared_ptr<SocketWrapper> socket;
     std::vector<char> sendBuf;
+    uint8_t* ctrlMsgBuf; //must be allocated aligned
+    const size_t ctrlMsgBufSize;
     
     int epollFd;
     int timerFd;

@@ -2,7 +2,9 @@
 
 #include "Exception.hpp"
 
+#include <iostream>
 #include <string>
+#include <sstream>
 
 namespace ts
 {
@@ -19,10 +21,11 @@ struct Task //common structure to store parameter for both rx & tx
 
     // TX
     int msToSleep = 2000;
-    int sendBufferSize = 1024;
+    int packetSize = 1024;
     std::string targetaddr; //only for connectionless protocols
 
     // RX
+    int recvBufSize = 1024;
 };
 
 
@@ -44,6 +47,25 @@ Mode stringToMode(const std::string& str)
         return Mode::RX;
 
     throw Exception("Failed to covert string to mode");
+}
+
+inline
+std::ostream& operator<<(std::ostream& os, const Task& t)
+{
+    std::stringstream ss;
+    if(t.mode == Mode::TX)
+    {
+        ss << "mode: TX; msToSleep: " << t.msToSleep << "; packetSize: " << t.packetSize << "; targetaddr: " << t.targetaddr;
+    }
+    else
+    {
+        ss << "mode: RX; rcvBufSize: " << t.recvBufSize;
+    }
+
+
+    os << ss.str();
+
+    return os;
 }
 
 }

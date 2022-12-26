@@ -84,6 +84,7 @@ bool ConfigParser::parseEndpoint(EndpointDescription& endpoint, const rapidjson:
     const char* SELFADDR = "selfAddr";
     const char* PEERADDR = "peerAddr";
     const char* TASK = "task";
+    const char* SOCKOPTS = "sockopts";
 
     endpoint = {};
 
@@ -116,6 +117,27 @@ bool ConfigParser::parseEndpoint(EndpointDescription& endpoint, const rapidjson:
         return false;        
     }
 
+    if(v.HasMember(SOCKOPTS))
+    {
+        const Value& sockopts = v[SOCKOPTS];
+        if(!sockopts.IsArray())
+        {
+            TSLOG("%s must be an array", SOCKOPTS);
+            return false;
+        }
+        if(sockopts.Size() == 0)
+        {
+            TSLOG("%s must contain at least one option (if present)", SOCKOPTS);
+            return false;
+        }
+        bool res = parseSockopts(endpoint.sockOpts, sockopts);
+        if(!res)
+        {
+            TSLOG("Failed to parse %s", SOCKOPTS);
+            return false;
+        }
+    }
+
     const Value& tasks = v[TASK];
     if(!tasks.IsArray())
     {
@@ -142,8 +164,9 @@ bool ConfigParser::parseTask(Task& task, const rapidjson::Value& v)
 
     const char* MODE = "mode";
     const char* MSTOSLEEP = "msToSleep";
-    const char* SNDBUFSIZE = "sndBufSize";
+    const char* PACKETSIZE = "packetSize";
     const char* TARGETADDR = "targetAddr";
+    const char* RECVBUFSIZE = "recvBufSize";
     
     if(!v.HasMember(MODE))
     {
@@ -159,9 +182,9 @@ bool ConfigParser::parseTask(Task& task, const rapidjson::Value& v)
         task.msToSleep = v[MSTOSLEEP].GetInt();
     }
 
-    if(v.HasMember(SNDBUFSIZE))
+    if(v.HasMember(PACKETSIZE))
     {
-        task.sendBufferSize = v[SNDBUFSIZE].GetInt();
+        task.packetSize = v[PACKETSIZE].GetInt();
     }
 
     if(v.HasMember(TARGETADDR))
@@ -169,6 +192,25 @@ bool ConfigParser::parseTask(Task& task, const rapidjson::Value& v)
         task.targetaddr = v[TARGETADDR].GetString();
     }
 
+    if(v.HasMember(RECVBUFSIZE))
+    {
+        task.recvBufSize = v[RECVBUFSIZE].GetInt();
+    }
+
+    return true;
+}
+
+bool ConfigParser::parseSockopts(SocketOptions& opts, const rapidjson::Value& v)
+{
+    opts = {};
+    for(size_t i = 0; i < v.Size(); ++i)
+    {
+        if(!opts.set(stringToSockOption(v[i].GetString())))
+        {
+            TSLOG("Failed to collect option %s", v[i].GetString());
+            return false;
+        }
+    }
     return true;
 }
 

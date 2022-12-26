@@ -8,12 +8,16 @@
 #include "stream.hpp"
 
 #include <unistd.h>
+#include <chrono>
 
 namespace ts
 {
 
 #define EPLOG(...) \
     TSNAMEDLOG(description.name.c_str(), __VA_ARGS__)
+
+#define EPEXCEPTION(...) \
+    THROWNAMEDEXCEPTION(description.name.c_str(), __VA_ARGS__)
 
 EndpointNew::EndpointNew(const EndpointDescription& e): description(e)
 {
@@ -100,7 +104,7 @@ void EndpointNew::init()
     }
     else
     {
-        raiseError("Init: unsupported transport");
+        EPEXCEPTION("unsupported transport");
     }
 
     readyToOperate = true;
@@ -113,7 +117,12 @@ void EndpointNew::initDgram()
     const int fd = createDgramSocket();
     if(fd == -1)
     {
-        raiseError("Failed to create socket");
+        EPEXCEPTION("Failed to create socket");
+    }
+
+    if(!setOptions(fd, AF_INET, description.sockOpts))
+    {
+        EPEXCEPTION("Failed to setOptions");
     }
 
     socket = std::make_shared<SocketWrapper>("some name", fd, Transport::DGRAM);
@@ -124,12 +133,12 @@ void EndpointNew::initDgram()
         const auto addr = getIpV4AddressAndPort(description.selfAddr);
         if(!addr)
         {
-            raiseError("Failed to create socket");
+            EPEXCEPTION("Failed to getIpV4AddressAndPort");
         }
 
         if(bind(fd, (sockaddr *)&(addr.value()), sizeof(addr.value())) != 0)
         {
-            raiseError("Endpoint_udp: failed to bind");
+            EPEXCEPTION("Endpoint_udp: failed to bind");
         }
         selfaddr = *addr;
         EPLOG("binding is done")
@@ -143,21 +152,35 @@ void EndpointNew::initDgram()
 
 void EndpointNew::initStream()
 {
+    EPLOG("init stream is called");
+
     if(description.selfAddr.empty()) //this would be a client
     {
         const int clientFd = createStreamSocket();
+
+        if(!setOptions(clientFd, AF_INET, description.sockOpts))
+        {
+            EPEXCEPTION("Failed to setOptions");
+        }
         
         socket = std::make_shared<SocketWrapper>("Client_tcp", clientFd, Transport::STREAM);
 
         const auto peerAddr = getIpV4AddressAndPort(description.peerAddr);
         if(!peerAddr)
         {
-            raiseError("Failed to parse peer addr");
+            EPEXCEPTION("Failed to parse peer addr");
+        }
+
+        //before connection, wait for some time to ensure that server has started
+        //TODO: better to write a cycle and try to connect in a loop
+        {
+            using namespace std::chrono_literals;
+            std::this_thread::sleep_for(2s);
         }
         
         if(connect(socket->getFd(), (sockaddr*) &(*peerAddr), sizeof(*peerAddr)) != 0)
         {
-            raiseError("initTcp: failed to connect");
+            EPEXCEPTION("failed to connect");
         }
 
         EPLOG("connectrion established");
@@ -169,19 +192,19 @@ void EndpointNew::initStream()
         const auto addr = getIpV4AddressAndPort(description.selfAddr);
         if(addr.has_value() == false)
         {
-            raiseError("Failed to create socket");
+            EPEXCEPTION("Failed to create socket");
         }
 
         if(bind(listenfd, (sockaddr *) &(addr.value()), sizeof(addr.value())) != 0)
         {
             close(listenfd);
-            raiseError("initTcp: failed to do bind");
+            EPEXCEPTION("failed to do bind");
         }
 
         if(listen(listenfd, 1) != 0)
         {
             close(listenfd);
-            raiseError("initTcp: Failed to listen");
+            EPEXCEPTION("Failed to listen");
         }
 
         sockaddr_in cliaddr = {};
@@ -190,8 +213,14 @@ void EndpointNew::initStream()
         const int serverFd = accept(listenfd, (sockaddr*) &cliaddr, &clilen);
         if(serverFd == -1)
         {
-            raiseError("initTcp: failed to accept connection\n");
+            EPEXCEPTION("initTcp: failed to accept connection\n");
         }
+
+        if(!setOptions(serverFd, AF_INET, description.sockOpts))
+        {
+            EPEXCEPTION("Failed to setOptions");
+        }
+
         socket = std::make_shared<SocketWrapper>("Server_tcp", serverFd, Transport::STREAM);
 
         EPLOG("connection accepted");
@@ -224,7 +253,7 @@ void EndpointNew::processTask()
         }
 
         params.msToSleep = task->msToSleep;
-        params.sendBufferSize = task->sendBufferSize;
+        params.sendBufferSize = task->packetSize;
         params.mode = Sender::Mode::LargePackets;
         s.start(params);
     }
@@ -234,18 +263,24 @@ void EndpointNew::processTask()
 
         Receiver r(socket);
         Receiver::Params params = {};
-        params.bufferCapacity = 10000;
+        params.bufferCapacity = task->recvBufSize;
         r.start(params);
     }
     else
     {
-        raiseError("Unsupported mode");
+        EPEXCEPTION("Unsupported mode");
     }   
 }
 
 void EndpointNew::initDgramLocal()
 {
     const int fd = createDgramLocalSocket();
+
+    if(!setOptions(fd, AF_UNIX, description.sockOpts))
+    {
+        EPEXCEPTION("Failed to setOptions");
+    }
+
     socket = std::make_shared<SocketWrapper>(description.name.c_str(), fd, Transport::DGRAM_LOCAL);
 
     if(description.selfAddr.empty() == false)
@@ -257,7 +292,7 @@ void EndpointNew::initDgramLocal()
         int res = bind(socket->getFd(), (sockaddr*) &sockaddrUn, sizeof(sockaddr));
         if(res  != 0)
         {
-            raiseError("Server_udp_local: failed to bind");
+            EPEXCEPTION("Server_udp_local: failed to bind");
         }
         selfaddr = sockaddrUn;
     }
@@ -268,6 +303,11 @@ void EndpointNew::initStreamLocal()
     if(description.selfAddr.empty()) //this would be a client
     {
         const int fd = createStreamLocalSocket();
+
+        if(!setOptions(fd, AF_UNIX, description.sockOpts))
+        {
+            EPEXCEPTION("Failed to setOptions");
+        }
         
         socket = std::make_shared<SocketWrapper>(description.name.c_str(), fd, Transport::STREAM_LOCAL);
 
@@ -275,7 +315,7 @@ void EndpointNew::initStreamLocal()
         
         if(connect(fd, (sockaddr*) &(peerAddr), sizeof(peerAddr)) != 0)
         {
-            raiseError("initTcpLocal: failed to connect");
+            EPEXCEPTION("initTcpLocal: failed to connect");
         }
 
         EPLOG("connectrion established");
@@ -292,14 +332,14 @@ void EndpointNew::initStreamLocal()
         if(res != 0)
         {
             close(listenFd);
-            raiseError("initTcpLocal: failed to bind");
+            EPEXCEPTION("initTcpLocal: failed to bind");
         }
 
         res = listen(listenFd, 1);
         if(res != 0)
         {
             close(listenFd);
-            raiseError("initTcpLocal: failed to listen");
+            EPEXCEPTION("initTcpLocal: failed to listen");
         }
 
         sockaddr_un clientAddress = {};
@@ -308,7 +348,12 @@ void EndpointNew::initStreamLocal()
         int serverFd = accept(listenFd, (sockaddr*)&clientAddress, &clientAddrLen);
         if(serverFd == -1)
         {
-            raiseError("createStreamLocalPair: failed to accept connection\n");
+            EPEXCEPTION("failed to accept connection\n");
+        }
+
+        if(!setOptions(serverFd, AF_UNIX, description.sockOpts))
+        {
+            EPEXCEPTION("Failed to setOptions");
         }
 
         socket = std::make_shared<SocketWrapper>(description.name.c_str(), serverFd, Transport::STREAM_LOCAL);

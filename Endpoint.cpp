@@ -157,11 +157,6 @@ void EndpointNew::initStream()
     if(description.selfAddr.empty()) //this would be a client
     {
         const int clientFd = createStreamSocket();
-
-        if(!setOptions(clientFd, AF_INET, description.sockOpts))
-        {
-            EPEXCEPTION("Failed to setOptions");
-        }
         
         socket = std::make_shared<SocketWrapper>("Client_tcp", clientFd, Transport::STREAM);
 
@@ -183,11 +178,24 @@ void EndpointNew::initStream()
             EPEXCEPTION("failed to connect");
         }
 
+        if(!setOptions(clientFd, AF_INET, description.sockOpts))
+        {
+            EPEXCEPTION("Failed to setOptions");
+        }
+
         EPLOG("connectrion established");
     }
     else //server
     {
         const int listenfd = createStreamSocket();
+
+        {
+            int val = 1;
+            if(setsockopt(listenfd, SOL_SOCKET, SO_REUSEADDR, &val, sizeof(val)) != 0)
+            {
+                EPEXCEPTION("Failed to set SO_REUSEADDR");
+            }
+        }
 
         const auto addr = getIpV4AddressAndPort(description.selfAddr);
         if(addr.has_value() == false)

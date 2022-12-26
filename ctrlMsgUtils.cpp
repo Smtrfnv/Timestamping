@@ -29,9 +29,7 @@ void processCtrlMessage(cmsghdr &chdr)
 
                     std::memcpy(&ts, CMSG_DATA(&chdr), sizeof(ts));
 
-                    TSLOG("ts[0] %ld %ld", ts.ts[0].tv_sec, ts.ts[0].tv_nsec);
-                    TSLOG("ts[1] %ld %ld", ts.ts[1].tv_sec, ts.ts[1].tv_nsec);
-                    TSLOG("ts[2] %ld %ld", ts.ts[2].tv_sec, ts.ts[2].tv_nsec);
+                    TSLOG("ts[0] %ld %ld, ts[1] %ld %ld, ts[2] %ld %ld", ts.ts[0].tv_sec, ts.ts[0].tv_nsec, ts.ts[1].tv_sec, ts.ts[1].tv_nsec, ts.ts[2].tv_sec, ts.ts[2].tv_nsec);
                     break;
                 }
                 case(SO_TIMESTAMPNS):
@@ -44,6 +42,12 @@ void processCtrlMessage(cmsghdr &chdr)
                     TSLOG("ts: %ld %ld", ts.tv_sec, ts.tv_nsec);
                     break;
                 }
+                case(SCM_TIMESTAMPING_OPT_STATS):
+                {
+                    TSLOG("Got SCM_TIMESTAMPING_OPT_STATS");
+
+                    // struct nlattr trtrt;
+                } break;
                 default:
                 {
                     TSLOG("unsupported cmsg_type");
@@ -59,10 +63,29 @@ void processCtrlMessage(cmsghdr &chdr)
             {
                 case(IP_RECVERR):
                 {
-                    TSLOG("Got IP_RECVERR");
-
                     sock_extended_err ser = {};
                     std::memcpy(&ser, CMSG_DATA(&chdr), sizeof(ser));
+
+                    switch(ser.ee_info)
+                    {
+                        case(SCM_TSTAMP_SND):
+                        {
+                            TSLOG("Got IP_RECVERR with SCM_TSTAMP_SND");
+                        } break;
+                        case(SCM_TSTAMP_SCHED):
+                        {
+                            TSLOG("Got IP_RECVERR with SCM_TSTAMP_SCHED");
+                        } break;
+                        case(SCM_TSTAMP_ACK):
+                        {
+                            TSLOG("Got IP_RECVERR with SCM_TSTAMP_ACK");
+                        } break;
+                        default:
+                        {
+                            THROWEXCEPTION("Unknown ee_info");
+                        }
+                    }
+
 
                     TSLOG("errno=%u, strerr=%s, origin=%u, type=%u, code=%u, pad=%u, info=%u, data=%u",
                             ser.ee_errno, strerror(ser.ee_errno), ser.ee_origin, ser.ee_type, ser.ee_code, ser.ee_pad, ser.ee_info, ser.ee_data);
@@ -126,6 +149,10 @@ void recvCtrlMessageTx(int sockFd, uint8_t* ctrlMsgBuf, const size_t capacity)
             ++ctr;
         }
         TSLOG("%d control messages received", ctr);
+        // if(ctr != 2)
+        // {
+        //     THROWEXCEPTION("More than expected ctrl msgs received");
+        // }
     }
     {
         msghdr msg = {};
@@ -138,12 +165,11 @@ void recvCtrlMessageTx(int sockFd, uint8_t* ctrlMsgBuf, const size_t capacity)
         msg.msg_control = ctrlMsgBuf;
         msg.msg_controllen = capacity;
 
-        int res = recvmsg(sockFd, &msg, MSG_ERRQUEUE);
-        if(res != -1)
-        {
-            THROWEXCEPTION("MSGERRQUEUE is not empty, res is %d", res);
-        }
-
+        // int res = recvmsg(sockFd, &msg, MSG_ERRQUEUE);
+        // if(res != -1)
+        // {
+        //     THROWEXCEPTION("MSGERRQUEUE is not empty, res is %d", res);
+        // }
     }
 }
 

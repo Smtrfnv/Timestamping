@@ -84,7 +84,7 @@ bool ConfigParser::parseEndpoint(EndpointDescription& endpoint, const rapidjson:
     const char* SELFADDR = "selfAddr";
     const char* PEERADDR = "peerAddr";
     const char* TASK = "task";
-    const char* SOCKOPTS = "sockopts";
+    const char* SOCKOPT = "sockopt";
 
     endpoint = {};
 
@@ -117,23 +117,13 @@ bool ConfigParser::parseEndpoint(EndpointDescription& endpoint, const rapidjson:
         return false;        
     }
 
-    if(v.HasMember(SOCKOPTS))
+    if(v.HasMember(SOCKOPT))
     {
-        const Value& sockopts = v[SOCKOPTS];
-        if(!sockopts.IsArray())
-        {
-            TSLOG("%s must be an array", SOCKOPTS);
-            return false;
-        }
-        if(sockopts.Size() == 0)
-        {
-            TSLOG("%s must contain at least one option (if present)", SOCKOPTS);
-            return false;
-        }
-        bool res = parseSockopts(endpoint.sockOpts, sockopts);
+        const Value& sockopt = v[SOCKOPT];
+        bool res = parseSockopt(endpoint.sockOpts, sockopt);
         if(!res)
         {
-            TSLOG("Failed to parse %s", SOCKOPTS);
+            TSLOG("Failed to parse %s", SOCKOPT);
             return false;
         }
     }
@@ -200,9 +190,46 @@ bool ConfigParser::parseTask(Task& task, const rapidjson::Value& v)
     return true;
 }
 
+bool ConfigParser::parseSockopt(SocketOptions& opts, const rapidjson::Value& v)
+{
+    using namespace rapidjson;
+
+    const char* NAME = "name";
+    const char* VALUE = "value";
+
+    opts = {};
+
+    if(!v.HasMember(NAME))
+        return false;
+    
+    const auto name = v[NAME].GetString();
+    const uint32_t uname = stringToSockOptionName(name);
+
+    if(!opts.setName(uname))
+    {
+        return false;
+    }
+
+    if(!v.HasMember(VALUE))
+        return false;
+
+    const Value& val = v[VALUE];
+    
+    if(!val.IsArray())
+    {
+        return false;
+    }
+
+    if(val.Size() == 0)
+    {
+        return false;
+    }
+
+    return parseSockopts(opts, val);
+}
+
 bool ConfigParser::parseSockopts(SocketOptions& opts, const rapidjson::Value& v)
 {
-    opts = {};
     for(size_t i = 0; i < v.Size(); ++i)
     {
         if(!opts.set(stringToSockOption(v[i].GetString())))

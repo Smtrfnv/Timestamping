@@ -67,7 +67,10 @@ void Sender::incrementalSend(const Params& p)
 
             for(int i = 0; i < numEvents; ++i)
             {
-                if(epevents[i].data.fd == timerFd)
+                const auto& event = epevents[i];
+                TSLOG("Event %s for fd %d", epollEventsToString(event.events).c_str(), event.data.fd);
+
+                if(event.data.fd == timerFd)
                 {
                     // consume timer and do send
                     consumeTimer();
@@ -75,7 +78,7 @@ void Sender::incrementalSend(const Params& p)
                     // recvCtrlMessageTx(socket->getFd());
                     ++pktNum;
                 }
-                else if(epevents[i].data.fd == socket->getFd())
+                else if(event.data.fd == socket->getFd())
                 {
                     //read msgerror queue
                     recvCtrlMessageTx(socket->getFd(), ctrlMsgBuf, ctrlMsgBufSize);

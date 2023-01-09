@@ -3,22 +3,28 @@
     [
         {
             "name": "endp tx",
-            "transport": "dgram",
+            "transport": "stream",
             "peerAddr": "127.0.0.1:2552",
             "task" :
             [
                 {
                     "mode" : "tx",
                     "msToSleep" : 2000,
-                    "packetSize": 65507,
+                    "packetSize": 10000,
                     "targetAddr": "127.0.0.1:2552"
                 }
             ],
-            "sockopts" : ["SOF_TIMESTAMPING_TX_SOFTWARE", "SOF_TIMESTAMPING_SOFTWARE", "SOF_TIMESTAMPING_OPT_ID"]
+            "sockopt":
+            {
+                "name" : "SO_TIMESTAMPING",
+                "value": ["SOF_TIMESTAMPING_TX_SOFTWARE", "SOF_TIMESTAMPING_SOFTWARE", 
+                            "SOF_TIMESTAMPING_OPT_ID", "SOF_TIMESTAMPING_OPT_TSONLY", "SOF_TIMESTAMPING_TX_SCHED", 
+                            "SOF_TIMESTAMPING_TX_ACK"]
+            }
         },
         {
             "name": "endp rx",
-            "transport": "dgram",
+            "transport": "stream",
             "selfAddr": "127.0.0.1:2552",
             "task" :
             [

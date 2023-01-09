@@ -120,7 +120,7 @@ void EndpointNew::initDgram()
         EPEXCEPTION("Failed to create socket");
     }
 
-    if(!setOptions(fd, AF_INET, description.sockOpts))
+    if(description.sockOpts.get() && !setOptions(fd, AF_INET, description.sockOpts))
     {
         EPEXCEPTION("Failed to setOptions");
     }
@@ -178,7 +178,7 @@ void EndpointNew::initStream()
             EPEXCEPTION("failed to connect");
         }
 
-        if(!setOptions(clientFd, AF_INET, description.sockOpts))
+        if(description.sockOpts.get() && !setOptions(clientFd, AF_INET, description.sockOpts))
         {
             EPEXCEPTION("Failed to setOptions");
         }
@@ -224,7 +224,7 @@ void EndpointNew::initStream()
             EPEXCEPTION("initTcp: failed to accept connection\n");
         }
 
-        if(!setOptions(serverFd, AF_INET, description.sockOpts))
+        if(description.sockOpts.get() && !setOptions(serverFd, AF_INET, description.sockOpts))
         {
             EPEXCEPTION("Failed to setOptions");
         }
@@ -284,7 +284,7 @@ void EndpointNew::initDgramLocal()
 {
     const int fd = createDgramLocalSocket();
 
-    if(!setOptions(fd, AF_UNIX, description.sockOpts))
+    if(description.sockOpts.get() && !setOptions(fd, AF_UNIX, description.sockOpts))
     {
         EPEXCEPTION("Failed to setOptions");
     }
@@ -312,7 +312,7 @@ void EndpointNew::initStreamLocal()
     {
         const int fd = createStreamLocalSocket();
 
-        if(!setOptions(fd, AF_UNIX, description.sockOpts))
+        if(description.sockOpts.get() && !setOptions(fd, AF_UNIX, description.sockOpts))
         {
             EPEXCEPTION("Failed to setOptions");
         }
@@ -320,6 +320,13 @@ void EndpointNew::initStreamLocal()
         socket = std::make_shared<SocketWrapper>(description.name.c_str(), fd, Transport::STREAM_LOCAL);
 
         auto peerAddr = convertUnixSocketAddr(description.peerAddr);
+
+        //before connection, wait for some time to ensure that server has started
+        //TODO: better to write a cycle and try to connect in a loop
+        {
+            using namespace std::chrono_literals;
+            std::this_thread::sleep_for(2s);
+        }
         
         if(connect(fd, (sockaddr*) &(peerAddr), sizeof(peerAddr)) != 0)
         {
@@ -359,7 +366,7 @@ void EndpointNew::initStreamLocal()
             EPEXCEPTION("failed to accept connection\n");
         }
 
-        if(!setOptions(serverFd, AF_UNIX, description.sockOpts))
+        if(description.sockOpts.get() && !setOptions(serverFd, AF_UNIX, description.sockOpts))
         {
             EPEXCEPTION("Failed to setOptions");
         }

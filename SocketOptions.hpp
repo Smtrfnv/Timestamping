@@ -18,6 +18,14 @@ class SocketOptions
 public:
     SocketOptions() = default;
 
+    bool setName(uint32_t _name)
+    {
+        if(name || val)
+            return false;
+        name = _name;
+        return true;
+    }
+
     bool set(uint32_t flag)
     {
         if(val & flag)
@@ -47,21 +55,43 @@ public:
         return val;
     }
 
+    uint32_t getName() const
+    {
+        return name;
+    } 
+
     friend std::ostream& operator<<(std::ostream& os, const SocketOptions& o);
 
     static const std::vector<std::pair<std::string, uint32_t>> optionsTable;
+    static const std::vector<std::pair<std::string, uint32_t>> optionNamesTable;
 
 private:
+    uint32_t name;
     uint32_t val;
 };
 
 uint32_t stringToSockOption(const std::string& str);
+uint32_t stringToSockOptionName(const std::string& str);
 
 inline
 std::ostream& operator<<(std::ostream& os, const SocketOptions& o)
 {
     std::stringstream ss;
 
+    ss << "optname: ";
+
+    for(size_t i = 0; i < SocketOptions::optionNamesTable.size(); ++i)
+    {
+        const auto& elm = SocketOptions::optionNamesTable[i];
+        if(o.getName() == (elm.second))
+        {
+            ss << elm.first;
+            break;
+        }
+    }
+
+
+    ss << ", optval: ";
     for(size_t i = 0; i < SocketOptions::optionsTable.size(); ++i)
     {
         const auto& elm = SocketOptions::optionsTable[i];

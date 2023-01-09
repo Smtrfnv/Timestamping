@@ -10,6 +10,7 @@
 #include <linux/net_tstamp.h>
 #include <unistd.h>
 #include <arpa/inet.h>
+#include <linux/eventpoll.h>
 
 namespace ts
 {
@@ -48,15 +49,10 @@ int createSocket(int family, int type, int protocol)
 
 bool setOptions(int fd, int family, const SocketOptions& opts)
 {
-    //TODO: update the whole logic so that timestamping and timestampns are possible to set
-    uint32_t val = 1;
-
-    if(family == AF_INET)
-    {
-        val = opts.get();
-    }
+    const auto name = opts.getName();
+    const auto val = opts.get();
     
-    int res = setsockopt(fd, SOL_SOCKET, (family == AF_INET) ? SO_TIMESTAMPING : SO_TIMESTAMPNS, &val, sizeof(val));
+    int res = setsockopt(fd, SOL_SOCKET, name, &val, sizeof(val));
 
     if(res != 0)
     {
@@ -105,6 +101,38 @@ sockaddr_un convertUnixSocketAddr(const std::string& addr)
     res.sun_family = AF_UNIX;
     strncpy(res.sun_path, addr.c_str(), sizeof(res.sun_path));
     return res;
+}
+
+
+const std::vector<std::pair<uint64_t, std::string>> epollEventsToStringTable = {
+        {EPOLLIN, "EPOLLIN"},
+        {EPOLLPRI, "EPOLLPRI"},
+        {EPOLLOUT, "EPOLLOUT"},
+        {EPOLLRDNORM, "EPOLLRDNORM"},
+        {EPOLLRDBAND, "EPOLLRDBAND"},
+        {EPOLLWRNORM, "EPOLLWRNORM"},
+        {EPOLLWRBAND, "EPOLLWRBAND"},
+        {EPOLLMSG, "EPOLLMSG"},
+        {EPOLLERR, "EPOLLERR"},
+        {EPOLLHUP, "EPOLLHUP"},
+        {EPOLLRDHUP, "EPOLLRDHUP"},
+        {EPOLLEXCLUSIVE, "EPOLLEXCLUSIVE"},
+        {EPOLLWAKEUP, "EPOLLWAKEUP"},
+        {EPOLLONESHOT, "EPOLLONESHOT"},
+        {EPOLLET, "EPOLLET"}
+};
+
+std::string epollEventsToString(uint64_t epollEvents)
+{
+    std::stringstream ss;
+    for(size_t i = 0; i < epollEventsToStringTable.size(); ++i)
+    {
+        if(epollEvents & epollEventsToStringTable[i].first)
+            ss << epollEventsToStringTable[i].second << " ";
+        
+    }
+
+    return ss.str();
 }
 
 

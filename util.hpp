@@ -21,6 +21,8 @@ bool setOptions(int fd, int family, const SocketOptions& opts);
 std::optional<sockaddr_in> getIpV4AddressAndPort(const std::string& addrAndPort);
 sockaddr_un convertUnixSocketAddr(const std::string& addr);
 
+std::string epollEventsToString(uint64_t epollEvent);
+
 
 
 }
